@@ -1,0 +1,453 @@
+# yaml-language-server: $schema=https://xtp.dylibso.com/assets/wasm/schema.json
+# Learn more at https://docs.xtp.dylibso.com/docs/concepts/xtp-schema
+version: v1-draft
+exports:
+  testEnhancedSql:
+    description: Test entry point that demonstrates all SQLite functionality
+    input:
+      type: string
+      description: The input string
+      contentType: text/plain; charset=utf-8
+    output:
+      $ref: "#/components/schemas/SqliteTestResult"
+      contentType: application/json
+imports:
+  kv_store:
+    description: Store a JSON value in the key-value database
+    input:
+      $ref: "#/components/schemas/KvStoreInput"
+      contentType: application/json
+    output:
+      type: boolean
+      contentType: application/x-binary
+      description: "No return value - operation success indicated by lack of error"
+  kv_read:
+    description: Read a JSON value from the key-value database
+    input:
+      $ref: "#/components/schemas/KvReadInput"
+      contentType: application/json
+    output:
+      type: object
+      contentType: application/json
+      description: The stored JSON value, or null if not found
+      nullable: true
+  sqlite_execute_enhanced:
+    description: Execute a SQL statement with enhanced metadata and type support
+    input:
+      $ref: "#/components/schemas/EnhancedSqlParams"
+      contentType: application/json
+    output:
+      $ref: "#/components/schemas/EnhancedSqlResult"
+      contentType: application/json
+  sqlite_query_enhanced:
+    description: Execute a SQL query with enhanced metadata and type support
+    input:
+      $ref: "#/components/schemas/EnhancedSqlParams"
+      contentType: application/json
+    output:
+      $ref: "#/components/schemas/EnhancedSqlResult"
+      contentType: application/json
+  sqlite_describe_table:
+    description: Get detailed information about a table structure
+    input:
+      $ref: "#/components/schemas/TableNameInput"
+      contentType: application/json
+    output:
+      $ref: "#/components/schemas/TableInfo"
+      contentType: application/json
+  sqlite_list_tables:
+    description: List all tables in the database
+    input:
+      $ref: "#/components/schemas/EmptyInput"
+      contentType: application/json
+    output:
+      type: string
+      contentType: application/json
+      description: JSON array of table names
+  sqlite_explain_query:
+    description: Get query execution plan for debugging and optimization
+    input:
+      $ref: "#/components/schemas/EnhancedSqlParams"
+      contentType: application/json
+    output:
+      $ref: "#/components/schemas/QueryExplanation"
+      contentType: application/json
+  sqlite_get_stats:
+    description: Get database performance statistics
+    input:
+      $ref: "#/components/schemas/EmptyInput"
+      contentType: application/json
+    output:
+      $ref: "#/components/schemas/DatabaseStats"
+      contentType: application/json
+  sqlite_begin_transaction:
+    description: Begin a database transaction
+    input:
+      $ref: "#/components/schemas/EmptyInput"
+      contentType: application/json
+    output:
+      $ref: "#/components/schemas/TransactionResult"
+      contentType: application/json
+  sqlite_commit_transaction:
+    description: Commit a database transaction
+    input:
+      $ref: "#/components/schemas/TransactionIdInput"
+      contentType: application/json
+    output:
+      $ref: "#/components/schemas/TransactionResult"
+      contentType: application/json
+  sqlite_rollback_transaction:
+    description: Rollback a database transaction
+    input:
+      $ref: "#/components/schemas/TransactionIdInput"
+      contentType: application/json
+    output:
+      $ref: "#/components/schemas/TransactionResult"
+      contentType: application/json
+components:
+  schemas:
+    KvStoreInput:
+      description: Input parameters for storing a key-value pair
+      required:
+        - table
+        - key
+        - value
+      properties:
+        table:
+          type: string
+          description: The table name to store the value in
+        key:
+          type: string
+          description: The key to store the value under
+        value:
+          type: object
+          description: The JSON value to store
+    KvReadInput:
+      description: Input parameters for reading a key-value pair
+      required:
+        - table
+        - key
+      properties:
+        table:
+          type: string
+          description: The table name to read from
+        key:
+          type: string
+          description: The key to read the value for
+    EmptyInput:
+      description: Empty input object for functions that don't require parameters
+      properties:
+        _dummy:
+          type: string
+          description: Dummy field to satisfy schema requirements
+          nullable: true
+    TableNameInput:
+      description: Input containing a table name
+      required:
+        - tableName
+      properties:
+        tableName:
+          type: string
+          description: Name of the table
+    TransactionIdInput:
+      description: Input containing a transaction ID
+      required:
+        - transactionId
+      properties:
+        transactionId:
+          type: string
+          description: Transaction identifier
+    EnhancedSqlParams:
+      description: Enhanced SQL parameters with type hints for better cross-language support
+      required:
+        - sql
+        - params
+      properties:
+        sql:
+          type: string
+          description: The SQL statement or query to execute
+        params:
+          type: array
+          description: Array of typed SQL parameters
+          items:
+            $ref: "#/components/schemas/TypedSqlParam"
+    TypedSqlParam:
+      description: A SQL parameter with optional type hint for better type safety
+      required:
+        - value
+      properties:
+        value:
+          type: object
+          description: The parameter value (can be string, number, boolean, null, etc.)
+        typeHint:
+          type: string
+          description: Optional type hint for the parameter
+          nullable: true
+    EnhancedSqlResult:
+      description: Enhanced SQL result with rich metadata
+      required:
+        - data
+        - columns
+        - metadata
+      properties:
+        data:
+          type: array
+          description: Array of result rows as JSON objects
+          items:
+            type: object
+        columns:
+          type: array
+          description: Information about result columns
+          items:
+            $ref: "#/components/schemas/ColumnInfo"
+        metadata:
+          $ref: "#/components/schemas/QueryMetadata"
+          description: Query execution metadata
+    ColumnInfo:
+      description: Information about a database column
+      required:
+        - name
+        - type
+        - nullable
+        - primaryKey
+        - autoIncrement
+      properties:
+        name:
+          type: string
+          description: Column name
+        type:
+          type: string
+          description: Column SQL type (e.g., TEXT, INTEGER, REAL)
+        nullable:
+          type: boolean
+          description: Whether the column can contain NULL values
+        primaryKey:
+          type: boolean
+          description: Whether this column is part of the primary key
+        autoIncrement:
+          type: boolean
+          description: Whether this column auto-increments
+        defaultValue:
+          type: string
+          description: Default value for the column
+          nullable: true
+    QueryMetadata:
+      description: Metadata about query execution
+      required:
+        - executionTimeMs
+        - rowsReturned
+        - rowsAffected
+        - sqliteVersion
+      properties:
+        executionTimeMs:
+          type: number
+          format: double
+          description: Query execution time in milliseconds
+        rowsReturned:
+          type: integer
+          format: int64
+          description: Number of rows returned by the query
+        rowsAffected:
+          type: integer
+          format: int64
+          description: Number of rows affected by the statement
+        lastInsertRowid:
+          type: integer
+          format: int64
+          description: Row ID of the last inserted row (for INSERT statements)
+          nullable: true
+        queryPlan:
+          type: string
+          description: SQLite query execution plan
+          nullable: true
+        sqliteVersion:
+          type: string
+          description: SQLite version string
+    TableInfo:
+      description: Detailed information about a database table
+      required:
+        - name
+        - columns
+        - indexes
+      properties:
+        name:
+          type: string
+          description: Table name
+        columns:
+          type: array
+          description: Table columns
+          items:
+            $ref: "#/components/schemas/ColumnInfo"
+        indexes:
+          type: array
+          description: Table indexes
+          items:
+            $ref: "#/components/schemas/IndexInfo"
+    IndexInfo:
+      description: Information about a database index
+      required:
+        - name
+        - columns
+        - unique
+      properties:
+        name:
+          type: string
+          description: Index name
+        columns:
+          type: array
+          description: Columns included in the index
+          items:
+            type: string
+        unique:
+          type: boolean
+          description: Whether this is a unique index
+    QueryExplanation:
+      description: Query execution plan and analysis
+      required:
+        - queryPlan
+        - estimatedCost
+        - estimatedRows
+        - sqliteVersion
+      properties:
+        queryPlan:
+          type: string
+          description: Human-readable query execution plan
+        estimatedCost:
+          type: number
+          format: double
+          description: Estimated query cost (if available)
+        estimatedRows:
+          type: integer
+          format: int64
+          description: Estimated number of rows (if available)
+        sqliteVersion:
+          type: string
+          description: SQLite version string
+    DatabaseStats:
+      description: Database performance and usage statistics
+      required:
+        - totalQueries
+        - totalExecutionTimeMs
+        - averageExecutionTimeMs
+        - queryCountByType
+        - databaseSizeBytes
+        - sqliteVersion
+      properties:
+        totalQueries:
+          type: integer
+          format: int64
+          description: Total number of queries executed
+        totalExecutionTimeMs:
+          type: number
+          format: double
+          description: Total execution time across all queries
+        averageExecutionTimeMs:
+          type: number
+          format: double
+          description: Average execution time per query
+        queryCountByType:
+          type: object
+          description: Count of queries by type (SELECT, INSERT, etc.)
+        databaseSizeBytes:
+          type: integer
+          format: int64
+          description: Database size in bytes
+        sqliteVersion:
+          type: string
+          description: SQLite version string
+    TransactionResult:
+      description: Result of a transaction operation
+      required:
+        - transactionId
+        - success
+      properties:
+        transactionId:
+          type: string
+          description: Transaction identifier
+        success:
+          type: boolean
+          description: Whether the transaction operation succeeded
+    SqliteTestResult:
+      description: Result of comprehensive SQLite functionality test
+      required:
+        - testName
+        - success
+        - results
+        - performanceSummary
+      properties:
+        testName:
+          type: string
+          description: Name of the test that was executed
+        success:
+          type: boolean
+          description: Whether all tests passed successfully
+        results:
+          type: array
+          description: Individual test results
+          items:
+            $ref: "#/components/schemas/TestStepResult"
+        performanceSummary:
+          $ref: "#/components/schemas/PerformanceSummary"
+          description: Overall performance metrics
+        errorMessage:
+          type: string
+          description: Error message if test failed
+          nullable: true
+    TestStepResult:
+      description: Result of an individual test step
+      required:
+        - stepName
+        - success
+        - executionTimeMs
+      properties:
+        stepName:
+          type: string
+          description: Name of the test step
+        success:
+          type: boolean
+          description: Whether this step passed
+        executionTimeMs:
+          type: number
+          format: double
+          description: Time taken for this step
+        details:
+          type: object
+          description: Additional details about the test step
+          nullable: true
+        errorMessage:
+          type: string
+          description: Error message if step failed
+          nullable: true
+    PerformanceSummary:
+      description: Summary of performance metrics across all tests
+      required:
+        - totalExecutionTimeMs
+        - totalQueries
+        - averageQueryTimeMs
+        - databaseOperations
+      properties:
+        totalExecutionTimeMs:
+          type: number
+          format: double
+          description: Total time for all operations
+        totalQueries:
+          type: integer
+          format: int64
+          description: Total number of SQL operations performed
+        averageQueryTimeMs:
+          type: number
+          format: double
+          description: Average execution time per query
+        databaseOperations:
+          type: array
+          description: List of database operations performed
+          items:
+            type: string
+        fastestOperation:
+          type: string
+          description: The fastest database operation
+          nullable: true
+        slowestOperation:
+          type: string
+          description: The slowest database operation
+          nullable: true

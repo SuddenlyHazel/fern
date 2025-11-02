@@ -315,6 +315,7 @@ fn test_query_enhanced() -> types::TestStepResult {
                     ("rows_returned", &result.metadata.rows_returned.to_string()),
                     ("column_count", &result.columns.len().to_string()),
                     ("execution_time_ms", &result.metadata.execution_time_ms.to_string()),
+                    ("data", format!("{}", serde_json::to_string(&result.data).unwrap()).as_str())
                 ])),
             }
         }

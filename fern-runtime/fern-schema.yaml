@@ -104,6 +104,24 @@ imports:
     output:
       $ref: "#/components/schemas/TransactionResult"
       contentType: application/json
+  guest_info:
+    description: Log an informational message to the host logger
+    input:
+      type: string
+      contentType: text/plain; charset=utf-8
+      description: The message to log at INFO level
+  guest_warn:
+    description: Log a warning message to the host logger
+    input:
+      type: string
+      contentType: text/plain; charset=utf-8
+      description: The message to log at WARN level
+  guest_error:
+    description: Log an error message to the host logger
+    input:
+      type: string
+      contentType: text/plain; charset=utf-8
+      description: The message to log at ERROR level
 components:
   schemas:
     KvStoreInput:

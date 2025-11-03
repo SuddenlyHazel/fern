@@ -16,6 +16,7 @@ pub(crate) fn test_enhanced_sql(_input: String) -> Result<types::SqliteTestResul
     };
 
     let test_name = "Comprehensive SQLite Test Suite".to_string();
+    guest_info(format!("{test_name}"))?;
     let mut overall_success = true;
 
     // Test 1: List tables (should be empty initially)

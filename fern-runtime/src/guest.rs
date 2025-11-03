@@ -1,7 +1,4 @@
-use std::env;
-
 use extism::{Manifest, Plugin, PluginBuilder, Wasm};
-use log::info;
 
 use crate::guest_fns;
 
@@ -19,6 +16,8 @@ pub fn new_guest(guest_module: impl Into<Wasm>) -> anyhow::Result<Plugin> {
 
 #[test]
 fn test_rust_guest() {
+    use log::info;
+
     env_logger::builder().filter_level(log::LevelFilter::Info).init();
     let test_module =
         include_bytes!("../../test_guest/test-rs-revised/target/wasm32-wasip1/release/plugin.wasm");

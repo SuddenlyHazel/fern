@@ -91,7 +91,15 @@ pub(crate) fn test_enhanced_sql(_input: String) -> Result<types::SqliteTestResul
     performance_summary.database_operations.push("transaction_rollback".to_string());
     results.push(step_result);
 
-    // Test 10: Test KV store functionality
+    // Test 10: Test querying multiple rows
+    let step_result = test_query_multiple_rows();
+    overall_success &= step_result.success;
+    performance_summary.total_queries += 4; // 3 inserts + 1 query
+    performance_summary.total_execution_time_ms += step_result.execution_time_ms;
+    performance_summary.database_operations.push("query_multiple_rows".to_string());
+    results.push(step_result);
+
+    // Test 11: Test KV store functionality
     let step_result = test_kv_store();
     overall_success &= step_result.success;
     performance_summary.total_queries += 2; // store + read
@@ -634,6 +642,126 @@ fn test_kv_store() -> types::TestStepResult {
             success: false,
             execution_time_ms: start_time.elapsed().as_millis() as f64,
             error_message: Some(format!("Failed to store KV value: {}", e)),
+            details: None,
+        },
+    }
+}
+
+fn test_query_multiple_rows() -> types::TestStepResult {
+    let start_time = std::time::Instant::now();
+    
+    // First, insert multiple test records
+    let test_users = [
+        ("Alice Smith", "alice@example.com", 25),
+        ("Bob Johnson", "bob@example.com", 35),
+        ("Carol Davis", "carol@example.com", 28),
+    ];
+    
+    // Insert each user
+    for (name, email, age) in &test_users {
+        let insert_sql = "INSERT INTO test_users (name, email, age) VALUES (?, ?, ?)";
+        
+        let mut name_value = serde_json::Map::new();
+        name_value.insert("value".to_string(), serde_json::Value::String(name.to_string()));
+        
+        let mut email_value = serde_json::Map::new();
+        email_value.insert("value".to_string(), serde_json::Value::String(email.to_string()));
+        
+        let mut age_value = serde_json::Map::new();
+        age_value.insert("value".to_string(), serde_json::Value::Number(serde_json::Number::from(*age)));
+
+        let params = types::EnhancedSqlParams {
+            sql: insert_sql.to_string(),
+            params: vec![
+                types::TypedSqlParam {
+                    value: name_value,
+                    type_hint: Some(types::SqlTypeHint::Text),
+                },
+                types::TypedSqlParam {
+                    value: email_value,
+                    type_hint: Some(types::SqlTypeHint::Text),
+                },
+                types::TypedSqlParam {
+                    value: age_value,
+                    type_hint: Some(types::SqlTypeHint::Integer),
+                },
+            ],
+        };
+
+        match sqlite_execute_enhanced(params) {
+            Ok(_) => {}, // Continue with next insert
+            Err(e) => {
+                return types::TestStepResult {
+                    step_name: "Query Multiple Rows".to_string(),
+                    success: false,
+                    execution_time_ms: start_time.elapsed().as_millis() as f64,
+                    error_message: Some(format!("Failed to insert test data for {}: {}", name, e)),
+                    details: None,
+                };
+            }
+        }
+    }
+    
+    // Now query for multiple rows - get all users with age >= 25
+    let query_sql = "SELECT id, name, email, age FROM test_users WHERE age >= ? ORDER BY name";
+    
+    let mut age_param = serde_json::Map::new();
+    age_param.insert("value".to_string(), serde_json::Value::Number(serde_json::Number::from(25)));
+
+    let params = types::EnhancedSqlParams {
+        sql: query_sql.to_string(),
+        params: vec![
+            types::TypedSqlParam {
+                value: age_param,
+                type_hint: Some(types::SqlTypeHint::Integer),
+            },
+        ],
+    };
+
+    match sqlite_query_enhanced(params) {
+        Ok(result) => {
+            let execution_time = start_time.elapsed().as_millis() as f64;
+            
+            // Verify we got multiple rows back
+            let expected_min_rows = test_users.len(); // All test users should match age >= 25
+            let actual_rows = result.metadata.rows_returned as usize;
+            
+            // Check if we got at least the expected number of rows (there might be more from previous tests)
+            let success = actual_rows >= expected_min_rows;
+            
+            // Verify the data structure is correct
+            let has_correct_columns = result.columns.len() == 4 &&
+                result.columns.iter().any(|c| c.name == "id") &&
+                result.columns.iter().any(|c| c.name == "name") &&
+                result.columns.iter().any(|c| c.name == "email") &&
+                result.columns.iter().any(|c| c.name == "age");
+            
+            let final_success = success && has_correct_columns;
+            
+            types::TestStepResult {
+                step_name: "Query Multiple Rows".to_string(),
+                success: final_success,
+                execution_time_ms: execution_time,
+                error_message: if final_success {
+                    None
+                } else {
+                    Some(format!("Expected at least {} rows, got {}. Columns correct: {}",
+                        expected_min_rows, actual_rows, has_correct_columns))
+                },
+                details: Some(create_details_map(&[
+                    ("rows_returned", &result.metadata.rows_returned.to_string()),
+                    ("expected_min_rows", &expected_min_rows.to_string()),
+                    ("column_count", &result.columns.len().to_string()),
+                    ("has_correct_columns", &has_correct_columns.to_string()),
+                    ("execution_time_ms", &result.metadata.execution_time_ms.to_string()),
+                ])),
+            }
+        }
+        Err(e) => types::TestStepResult {
+            step_name: "Query Multiple Rows".to_string(),
+            success: false,
+            execution_time_ms: start_time.elapsed().as_millis() as f64,
+            error_message: Some(format!("Failed to query multiple rows: {}", e)),
             details: None,
         },
     }

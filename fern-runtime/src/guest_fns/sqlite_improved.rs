@@ -97,7 +97,7 @@ pub enum SqlTypeHint {
     #[serde(rename = "datetime")]
     Datetime,
     #[serde(rename = "_null")]
-    _null,
+    Null,
 }
 
 impl FromBytes<'_> for TypedSqlParam {
@@ -118,7 +118,7 @@ impl ToSql for TypedSqlParam {
 
         match &self.type_hint {
             Some(hint) => match hint {
-                SqlTypeHint::_null => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null)),
+                SqlTypeHint::Null => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null)),
                 SqlTypeHint::Boolean => {
                     if let Some(b) = actual_value.as_bool() {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Integer(if b {
@@ -163,7 +163,6 @@ impl ToSql for TypedSqlParam {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null))
                     }
                 }
-                _ => self.value_to_sql_with_actual(actual_value),
             },
             None => self.value_to_sql_with_actual(actual_value),
         }
@@ -171,16 +170,6 @@ impl ToSql for TypedSqlParam {
 }
 
 impl TypedSqlParam {
-    fn value_to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        // Extract the actual value from the nested "value" field if it exists
-        let actual_value = if let Some(obj) = self.value.as_object() {
-            obj.get("value").unwrap_or(&self.value)
-        } else {
-            &self.value
-        };
-        self.value_to_sql_with_actual(actual_value)
-    }
-
     fn value_to_sql_with_actual(&self, actual_value: &Value) -> rusqlite::Result<ToSqlOutput<'_>> {
         match actual_value {
             Value::Null => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null)),
@@ -788,23 +777,23 @@ fn rollback_transaction(
     }
 }
 
-fn get_query_type(sql: &str) -> String {
-    let sql_lower = sql.trim_start().to_lowercase();
-    if sql_lower.starts_with("select") {
-        "SELECT".to_string()
-    } else if sql_lower.starts_with("insert") {
-        "INSERT".to_string()
-    } else if sql_lower.starts_with("update") {
-        "UPDATE".to_string()
-    } else if sql_lower.starts_with("delete") {
-        "DELETE".to_string()
-    } else if sql_lower.starts_with("create") {
-        "CREATE".to_string()
-    } else if sql_lower.starts_with("drop") {
-        "DROP".to_string()
-    } else if sql_lower.starts_with("alter") {
-        "ALTER".to_string()
-    } else {
-        "OTHER".to_string()
-    }
-}
+// fn get_query_type(sql: &str) -> String {
+//     let sql_lower = sql.trim_start().to_lowercase();
+//     if sql_lower.starts_with("select") {
+//         "SELECT".to_string()
+//     } else if sql_lower.starts_with("insert") {
+//         "INSERT".to_string()
+//     } else if sql_lower.starts_with("update") {
+//         "UPDATE".to_string()
+//     } else if sql_lower.starts_with("delete") {
+//         "DELETE".to_string()
+//     } else if sql_lower.starts_with("create") {
+//         "CREATE".to_string()
+//     } else if sql_lower.starts_with("drop") {
+//         "DROP".to_string()
+//     } else if sql_lower.starts_with("alter") {
+//         "ALTER".to_string()
+//     } else {
+//         "OTHER".to_string()
+//     }
+// }

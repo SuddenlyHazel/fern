@@ -1,13 +1,12 @@
+use base64;
 use extism::{FromBytes, PTR, PluginBuilder, ToBytes, UserData, host_fn};
 use extism_convert::Json;
+use log::info;
 use rusqlite::{ToSql, params_from_iter, types::ToSqlOutput};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::time::Instant;
-use uuid::Uuid;
-use log::{info, debug, error};
-use base64;
 
 pub struct GuestSqliteDbImproved {
     pub db: rusqlite::Connection,
@@ -24,26 +23,33 @@ pub struct QueryStats {
 impl GuestSqliteDbImproved {
     pub fn new() -> Self {
         let db = rusqlite::Connection::open_in_memory().expect("failed to create in-memory db");
-        
+
         // Set SQLite pragmas for better performance and safety
-        db.execute_batch("
+        db.execute_batch(
+            "
             PRAGMA foreign_keys = ON;
             PRAGMA journal_mode = MEMORY;
             PRAGMA synchronous = FULL;
             PRAGMA temp_store = MEMORY;
             PRAGMA cache_size = -64000;
-        ").expect("failed to set SQLite pragmas");
-        
-        Self { 
+        ",
+        )
+        .expect("failed to set SQLite pragmas");
+
+        Self {
             db,
             stats: QueryStats::default(),
         }
     }
-    
+
     pub fn record_query(&mut self, query_type: &str, execution_time_ms: f64) {
         self.stats.total_queries += 1;
         self.stats.total_execution_time_ms += execution_time_ms;
-        *self.stats.query_count_by_type.entry(query_type.to_string()).or_insert(0) += 1;
+        *self
+            .stats
+            .query_count_by_type
+            .entry(query_type.to_string())
+            .or_insert(0) += 1;
     }
 }
 
@@ -75,13 +81,7 @@ pub struct TypedSqlParam {
     pub type_hint: Option<SqlTypeHint>, // "text", "integer", "real", "blob", "boolean", "datetime", "nullValue"
 }
 
-#[derive(
-    Default,
-    Debug,
-    Clone,
-    Serialize,
-    Deserialize,
-)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub enum SqlTypeHint {
     #[default]
     #[serde(rename = "text")]
@@ -121,40 +121,48 @@ impl ToSql for TypedSqlParam {
                 SqlTypeHint::_null => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null)),
                 SqlTypeHint::Boolean => {
                     if let Some(b) = actual_value.as_bool() {
-                        Ok(ToSqlOutput::Owned(rusqlite::types::Value::Integer(if b { 1 } else { 0 })))
+                        Ok(ToSqlOutput::Owned(rusqlite::types::Value::Integer(if b {
+                            1
+                        } else {
+                            0
+                        })))
                     } else {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null))
                     }
-                },
+                }
                 SqlTypeHint::Integer => {
                     if let Some(i) = actual_value.as_i64() {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Integer(i)))
                     } else {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null))
                     }
-                },
+                }
                 SqlTypeHint::Real => {
                     if let Some(f) = actual_value.as_f64() {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Real(f)))
                     } else {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null))
                     }
-                },
+                }
                 SqlTypeHint::Text | SqlTypeHint::Datetime => {
                     if let Some(s) = actual_value.as_str() {
-                        Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(s.to_string())))
+                        Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(
+                            s.to_string(),
+                        )))
                     } else {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null))
                     }
-                },
+                }
                 SqlTypeHint::Blob => {
                     if let Some(s) = actual_value.as_str() {
                         // For now, just store as text. Could add base64 decoding later if needed
-                        Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(s.to_string())))
+                        Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(
+                            s.to_string(),
+                        )))
                     } else {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null))
                     }
-                },
+                }
                 _ => self.value_to_sql_with_actual(actual_value),
             },
             None => self.value_to_sql_with_actual(actual_value),
@@ -176,7 +184,11 @@ impl TypedSqlParam {
     fn value_to_sql_with_actual(&self, actual_value: &Value) -> rusqlite::Result<ToSqlOutput<'_>> {
         match actual_value {
             Value::Null => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null)),
-            Value::Bool(b) => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Integer(if *b { 1 } else { 0 }))),
+            Value::Bool(b) => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Integer(if *b {
+                1
+            } else {
+                0
+            }))),
             Value::Number(n) => {
                 if let Some(i) = n.as_i64() {
                     Ok(ToSqlOutput::Owned(rusqlite::types::Value::Integer(i)))
@@ -185,9 +197,11 @@ impl TypedSqlParam {
                 } else {
                     Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null))
                 }
-            },
+            }
             Value::String(s) => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(s.clone()))),
-            _ => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(actual_value.to_string()))),
+            _ => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(
+                actual_value.to_string(),
+            ))),
         }
     }
 }
@@ -411,27 +425,31 @@ fn execute_enhanced(
 ) -> Result<EnhancedSqlResult, extism::Error> {
     let start = Instant::now();
     let user_data_guard = user_data.get()?;
-    let mut user_data = user_data_guard.lock().unwrap();
-    
-    let rows_affected = user_data.db.execute(&params.sql, params_from_iter(&params.params))? as u64;
+    let user_data = user_data_guard.lock().unwrap();
+
+    let rows_affected = user_data
+        .db
+        .execute(&params.sql, params_from_iter(&params.params))? as u64;
     let last_insert_rowid = if params.sql.trim_start().to_lowercase().starts_with("insert") {
         Some(user_data.db.last_insert_rowid())
     } else {
         None
     };
-    
+
     let execution_time = start.elapsed();
     let execution_time_ms = execution_time.as_secs_f64() * 1000.0;
-    
+
     // Get SQLite version
-    let sqlite_version = user_data.db.prepare("SELECT sqlite_version()")
+    let sqlite_version = user_data
+        .db
+        .prepare("SELECT sqlite_version()")
         .and_then(|mut stmt| stmt.query_row([], |row| row.get::<_, String>(0)))
         .unwrap_or_else(|_| "unknown".to_string());
-    
+
     // TODO: Record stats - need to fix borrowing issue
     // let query_type = get_query_type(&params.sql);
     // user_data.record_query(&query_type, execution_time_ms);
-    
+
     Ok(EnhancedSqlResult {
         data: vec![], // Execute operations don't return data
         columns: vec![],
@@ -452,42 +470,51 @@ fn query_enhanced(
 ) -> Result<EnhancedSqlResult, extism::Error> {
     let start = Instant::now();
     let user_data_guard = user_data.get()?;
-    let mut user_data = user_data_guard.lock().unwrap();
-    
+    let user_data = user_data_guard.lock().unwrap();
+
     // Get query plan for debugging
     let query_plan = if params.sql.trim_start().to_lowercase().starts_with("select") {
         let plan_stmt = format!("EXPLAIN QUERY PLAN {}", params.sql);
-        user_data.db.prepare(&plan_stmt)
+        user_data
+            .db
+            .prepare(&plan_stmt)
             .and_then(|mut stmt| {
-                let rows: Result<Vec<String>, _> = stmt.query_map([], |row| {
-                    Ok(format!("{}: {}", row.get::<_, i32>(0)?, row.get::<_, String>(3)?))
-                })?.collect();
+                let rows: Result<Vec<String>, _> = stmt
+                    .query_map([], |row| {
+                        Ok(format!(
+                            "{}: {}",
+                            row.get::<_, i32>(0)?,
+                            row.get::<_, String>(3)?
+                        ))
+                    })?
+                    .collect();
                 rows.map(|r| r.join(" -> "))
             })
             .ok()
     } else {
         None
     };
-    
+
     let mut stmt = user_data.db.prepare(&params.sql)?;
-    
+
     // Extract rich column information
-    let columns: Vec<ColumnInfo> = stmt.columns()
+    let columns: Vec<ColumnInfo> = stmt
+        .columns()
         .iter()
         .map(|col| ColumnInfo {
             name: col.name().to_string(),
             r#type: col.decl_type().unwrap_or("UNKNOWN").to_string(),
-            nullable: true, // SQLite doesn't provide this easily without PRAGMA
-            primary_key: false, // Would need PRAGMA table_info
+            nullable: true,        // SQLite doesn't provide this easily without PRAGMA
+            primary_key: false,    // Would need PRAGMA table_info
             auto_increment: false, // Would need PRAGMA table_info
-            default_value: None, // Would need PRAGMA table_info
+            default_value: None,   // Would need PRAGMA table_info
         })
         .collect();
-    
+
     let mut result = stmt.query(params_from_iter(&params.params))?;
     let mut results = Vec::new();
     let mut row_count = 0;
-    
+
     while let Ok(Some(row)) = result.next() {
         let mut row_map = serde_json::Map::new();
         for (i, col_info) in columns.iter().enumerate() {
@@ -500,33 +527,35 @@ fn query_enhanced(
                     } else {
                         Value::Null
                     }
-                },
+                }
                 rusqlite::types::ValueRef::Text(s) => {
                     Value::String(String::from_utf8_lossy(s).to_string())
-                },
+                }
                 rusqlite::types::ValueRef::Blob(b) => {
                     // Convert blob to base64 string for JSON representation
                     Value::String(base64::encode(b))
-                },
+                }
             };
             row_map.insert(col_info.name.clone(), value);
         }
         results.push(Value::Object(row_map));
         row_count += 1;
     }
-    
+
     let execution_time = start.elapsed();
     let execution_time_ms = execution_time.as_secs_f64() * 1000.0;
-    
+
     // Get SQLite version
-    let sqlite_version = user_data.db.prepare("SELECT sqlite_version()")
+    let sqlite_version = user_data
+        .db
+        .prepare("SELECT sqlite_version()")
         .and_then(|mut stmt| stmt.query_row([], |row| row.get::<_, String>(0)))
         .unwrap_or_else(|_| "unknown".to_string());
-    
+
     // TODO: Record stats - need to fix borrowing issue
     // let query_type = get_query_type(&params.sql);
     // user_data.record_query(&query_type, execution_time_ms);
-    
+
     Ok(EnhancedSqlResult {
         data: results,
         columns,
@@ -547,7 +576,7 @@ fn describe_table(
 ) -> Result<TableInfo, extism::Error> {
     let user_data = user_data.get()?;
     let user_data = user_data.lock().unwrap();
-    
+
     // Get column information
     let sql = format!("PRAGMA table_info('{}')", table_name);
     let mut stmt = user_data.db.prepare(&sql)?;
@@ -561,10 +590,10 @@ fn describe_table(
             default_value: row.get::<_, Option<String>>(4)?,
         })
     })?;
-    
+
     let columns: Result<Vec<_>, _> = column_rows.collect();
     let columns = columns?;
-    
+
     // Get index information
     let sql = format!("PRAGMA index_list('{}')", table_name);
     let mut stmt = user_data.db.prepare(&sql)?;
@@ -573,18 +602,16 @@ fn describe_table(
         let unique: bool = row.get(2)?;
         Ok((index_name, unique))
     })?;
-    
+
     let mut indexes = Vec::new();
     for index_result in index_rows {
         let (index_name, unique) = index_result?;
-        
+
         // Get columns for this index
         let sql = format!("PRAGMA index_info('{}')", index_name);
         let mut stmt = user_data.db.prepare(&sql)?;
-        let col_rows = stmt.query_map([], |row| {
-            Ok(row.get::<_, String>(2)?)
-        })?;
-        
+        let col_rows = stmt.query_map([], |row| Ok(row.get::<_, String>(2)?))?;
+
         let index_columns: Result<Vec<_>, _> = col_rows.collect();
         indexes.push(IndexInfo {
             name: index_name,
@@ -592,7 +619,7 @@ fn describe_table(
             unique,
         });
     }
-    
+
     Ok(TableInfo {
         name: table_name,
         columns,
@@ -603,15 +630,15 @@ fn describe_table(
 fn list_tables_json(user_data: UserData<GuestSqliteDbImproved>) -> Result<String, extism::Error> {
     let user_data = user_data.get()?;
     let user_data = user_data.lock().unwrap();
-    
-    let mut stmt = user_data.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")?;
-    let table_rows = stmt.query_map([], |row| {
-        Ok(row.get::<_, String>(0)?)
-    })?;
-    
+
+    let mut stmt = user_data.db.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+    )?;
+    let table_rows = stmt.query_map([], |row| Ok(row.get::<_, String>(0)?))?;
+
     let tables: Result<Vec<_>, _> = table_rows.collect();
     let tables = tables?;
-    
+
     serde_json::to_string(&tables).map_err(|e| extism::Error::msg(e.to_string()))
 }
 
@@ -621,23 +648,33 @@ fn explain_query(
 ) -> Result<QueryExplanation, extism::Error> {
     let user_data = user_data.get()?;
     let user_data = user_data.lock().unwrap();
-    
+
     // Get execution plan
     let plan_query = format!("EXPLAIN QUERY PLAN {}", params.sql);
-    let query_plan = user_data.db.prepare(&plan_query)
+    let query_plan = user_data
+        .db
+        .prepare(&plan_query)
         .and_then(|mut stmt| {
-            let rows: Result<Vec<String>, _> = stmt.query_map([], |row| {
-                Ok(format!("{}: {}", row.get::<_, i32>(0)?, row.get::<_, String>(3)?))
-            })?.collect();
+            let rows: Result<Vec<String>, _> = stmt
+                .query_map([], |row| {
+                    Ok(format!(
+                        "{}: {}",
+                        row.get::<_, i32>(0)?,
+                        row.get::<_, String>(3)?
+                    ))
+                })?
+                .collect();
             rows.map(|r| r.join("\n"))
         })
         .unwrap_or_else(|_| "Unable to generate query plan".to_string());
-    
+
     // Get SQLite version
-    let sqlite_version = user_data.db.prepare("SELECT sqlite_version()")
+    let sqlite_version = user_data
+        .db
+        .prepare("SELECT sqlite_version()")
         .and_then(|mut stmt| stmt.query_row([], |row| row.get::<_, String>(0)))
         .unwrap_or_else(|_| "unknown".to_string());
-    
+
     Ok(QueryExplanation {
         query_plan,
         estimated_cost: 0.0, // SQLite doesn't provide cost estimates easily
@@ -649,26 +686,32 @@ fn explain_query(
 fn get_stats(user_data: UserData<GuestSqliteDbImproved>) -> Result<DatabaseStats, extism::Error> {
     let user_data = user_data.get()?;
     let user_data = user_data.lock().unwrap();
-    
+
     let average_execution_time_ms = if user_data.stats.total_queries > 0 {
         user_data.stats.total_execution_time_ms / user_data.stats.total_queries as f64
     } else {
         0.0
     };
-    
+
     // Get database size (page_count * page_size)
-    let database_size_bytes = user_data.db.prepare("PRAGMA page_count")
+    let database_size_bytes = user_data
+        .db
+        .prepare("PRAGMA page_count")
         .and_then(|mut stmt| stmt.query_row([], |row| row.get::<_, u64>(0)))
-        .unwrap_or(0) * 
-        user_data.db.prepare("PRAGMA page_size")
-        .and_then(|mut stmt| stmt.query_row([], |row| row.get::<_, u64>(0)))
-        .unwrap_or(4096);
-    
+        .unwrap_or(0)
+        * user_data
+            .db
+            .prepare("PRAGMA page_size")
+            .and_then(|mut stmt| stmt.query_row([], |row| row.get::<_, u64>(0)))
+            .unwrap_or(4096);
+
     // Get SQLite version
-    let sqlite_version = user_data.db.prepare("SELECT sqlite_version()")
+    let sqlite_version = user_data
+        .db
+        .prepare("SELECT sqlite_version()")
         .and_then(|mut stmt| stmt.query_row([], |row| row.get::<_, String>(0)))
         .unwrap_or_else(|_| "unknown".to_string());
-    
+
     Ok(DatabaseStats {
         total_queries: user_data.stats.total_queries,
         total_execution_time_ms: user_data.stats.total_execution_time_ms,
@@ -679,23 +722,31 @@ fn get_stats(user_data: UserData<GuestSqliteDbImproved>) -> Result<DatabaseStats
     })
 }
 
-fn begin_transaction(user_data: UserData<GuestSqliteDbImproved>) -> Result<TransactionResult, extism::Error> {
+fn begin_transaction(
+    user_data: UserData<GuestSqliteDbImproved>,
+) -> Result<TransactionResult, extism::Error> {
     let user_data = user_data.get()?;
     let user_data = user_data.lock().unwrap();
-    
+
     match user_data.db.execute("BEGIN TRANSACTION", []) {
         Ok(_) => {
             // Generate a simple transaction ID using timestamp
-            let transaction_id = format!("tx_{}", std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos());
+            let transaction_id = format!(
+                "tx_{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_nanos()
+            );
             Ok(TransactionResult {
                 transaction_id,
                 success: true,
             })
-        },
-        Err(e) => Err(extism::Error::msg(format!("Failed to begin transaction: {}", e))),
+        }
+        Err(e) => Err(extism::Error::msg(format!(
+            "Failed to begin transaction: {}",
+            e
+        ))),
     }
 }
 
@@ -705,13 +756,16 @@ fn commit_transaction(
 ) -> Result<TransactionResult, extism::Error> {
     let user_data = user_data.get()?;
     let user_data = user_data.lock().unwrap();
-    
+
     match user_data.db.execute("COMMIT", []) {
         Ok(_) => Ok(TransactionResult {
             transaction_id: _transaction_id,
             success: true,
         }),
-        Err(e) => Err(extism::Error::msg(format!("Failed to commit transaction: {}", e))),
+        Err(e) => Err(extism::Error::msg(format!(
+            "Failed to commit transaction: {}",
+            e
+        ))),
     }
 }
 
@@ -721,13 +775,16 @@ fn rollback_transaction(
 ) -> Result<TransactionResult, extism::Error> {
     let user_data = user_data.get()?;
     let user_data = user_data.lock().unwrap();
-    
+
     match user_data.db.execute("ROLLBACK", []) {
         Ok(_) => Ok(TransactionResult {
             transaction_id: _transaction_id,
             success: true,
         }),
-        Err(e) => Err(extism::Error::msg(format!("Failed to rollback transaction: {}", e))),
+        Err(e) => Err(extism::Error::msg(format!(
+            "Failed to rollback transaction: {}",
+            e
+        ))),
     }
 }
 

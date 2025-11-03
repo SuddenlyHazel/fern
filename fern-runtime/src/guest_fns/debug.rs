@@ -1,5 +1,5 @@
 use extism::{PTR, PluginBuilder, UserData, host_fn};
-use log::{info, warn, error};
+use log::{error, info, warn};
 
 pub fn attach_guest_debug(builder: PluginBuilder) -> PluginBuilder {
     let user_data = UserData::new(());

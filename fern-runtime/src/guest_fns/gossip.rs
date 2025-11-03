@@ -12,7 +12,7 @@ type RecvChannel = tokio::sync::mpsc::Receiver<()>;
 
 pub struct GuestGossip {
     gossip: Gossip,
-    global_handle : JoinHandle<anyhow::Result<()>>,
+    global_handle: JoinHandle<anyhow::Result<()>>,
 }
 
 pub fn attach_guest_gossip(
@@ -26,9 +26,13 @@ pub fn attach_guest_gossip(
     router = router.accept(ALPN, gossip.clone());
 
     let (tx, rx) = tokio::sync::mpsc::channel(1000);
-    let global_handle = tokio::task::spawn(plugin_global_gossip_task(gossip.clone(), tx, rx, bootstrap));
+    let global_handle =
+        tokio::task::spawn(plugin_global_gossip_task(gossip.clone(), tx, rx, bootstrap));
 
-    let gossip = UserData::new(GuestGossip { gossip, global_handle });
+    let gossip = UserData::new(GuestGossip {
+        gossip,
+        global_handle,
+    });
 
     (plugin, router, gossip)
 }

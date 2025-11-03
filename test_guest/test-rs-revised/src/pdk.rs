@@ -386,6 +386,34 @@ pub mod types {
         extism_pdk::ToBytes,
     )]
     #[encoding(Json)]
+    pub enum SqlTypeHint {
+        #[default]
+        #[serde(rename = "text")]
+        Text,
+        #[serde(rename = "integer")]
+        Integer,
+        #[serde(rename = "real")]
+        Real,
+        #[serde(rename = "blob")]
+        Blob,
+        #[serde(rename = "boolean")]
+        Boolean,
+        #[serde(rename = "datetime")]
+        Datetime,
+        #[serde(rename = "_null")]
+        _null,
+    }
+
+    #[derive(
+        Default,
+        Debug,
+        Clone,
+        serde::Serialize,
+        serde::Deserialize,
+        extism_pdk::FromBytes,
+        extism_pdk::ToBytes,
+    )]
+    #[encoding(Json)]
     pub struct SqliteTestResult {
         /// Error message if test failed
         #[serde(rename = "errorMessage")]
@@ -537,7 +565,7 @@ pub mod types {
         #[serde(rename = "typeHint")]
         #[serde(skip_serializing_if = "Option::is_none")]
         #[serde(default)]
-        pub type_hint: Option<String>,
+        pub type_hint: Option<types::SqlTypeHint>,
 
         /// The parameter value (can be string, number, boolean, null, etc.)
         #[serde(rename = "value")]

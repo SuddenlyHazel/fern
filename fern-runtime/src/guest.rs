@@ -14,17 +14,9 @@ pub fn new_guest(guest_module: impl Into<Wasm>) -> anyhow::Result<Plugin> {
 }
 
 #[test]
-fn test_rust() {
-    let test_module = include_bytes!("../../test_guest/test-rs-revised/target/wasm32-wasip1/release/plugin.wasm");
-    let mut guest = new_guest(test_module.to_vec()).expect("failed to create guest");
-    let r = guest.call::<&str, serde_json::Value>("testEnhancedSql", "hello");
-    println!("{r:#?}");
-}
-
-#[test]
-fn test_python() {
+fn test_rust_guest() {
     env_logger::init();
-    let test_module = include_bytes!("../../test_guest/test-py-revised/plugin.wasm");
+    let test_module = include_bytes!("../../test_guest/test-rs-revised/target/wasm32-wasip1/release/plugin.wasm");
     let mut guest = new_guest(test_module.to_vec()).expect("failed to create guest");
     let r = guest.call::<&str, serde_json::Value>("testEnhancedSql", "hello");
     println!("{r:#?}");

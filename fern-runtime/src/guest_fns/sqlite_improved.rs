@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 use uuid::Uuid;
 use log::{info, debug, error};
+use base64;
 
 pub struct GuestSqliteDbImproved {
     pub db: rusqlite::Connection,
@@ -71,7 +72,32 @@ pub struct TransactionIdInput {
 pub struct TypedSqlParam {
     pub value: Value,
     #[serde(rename = "typeHint")]
-    pub type_hint: Option<String>, // "text", "integer", "real", "blob", "boolean", "datetime", "null"
+    pub type_hint: Option<SqlTypeHint>, // "text", "integer", "real", "blob", "boolean", "datetime", "nullValue"
+}
+
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+)]
+pub enum SqlTypeHint {
+    #[default]
+    #[serde(rename = "text")]
+    Text,
+    #[serde(rename = "integer")]
+    Integer,
+    #[serde(rename = "real")]
+    Real,
+    #[serde(rename = "blob")]
+    Blob,
+    #[serde(rename = "boolean")]
+    Boolean,
+    #[serde(rename = "datetime")]
+    Datetime,
+    #[serde(rename = "_null")]
+    _null,
 }
 
 impl FromBytes<'_> for TypedSqlParam {
@@ -83,55 +109,72 @@ impl FromBytes<'_> for TypedSqlParam {
 
 impl ToSql for TypedSqlParam {
     fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        // Extract the actual value from the nested "value" field if it exists
+        let actual_value = if let Some(obj) = self.value.as_object() {
+            obj.get("value").unwrap_or(&self.value)
+        } else {
+            &self.value
+        };
+
         match &self.type_hint {
-            Some(hint) => match hint.as_str() {
-                "null" => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null)),
-                "boolean" => {
-                    if let Some(b) = self.value.as_bool() {
+            Some(hint) => match hint {
+                SqlTypeHint::_null => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null)),
+                SqlTypeHint::Boolean => {
+                    if let Some(b) = actual_value.as_bool() {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Integer(if b { 1 } else { 0 })))
                     } else {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null))
                     }
                 },
-                "integer" => {
-                    if let Some(i) = self.value.as_i64() {
+                SqlTypeHint::Integer => {
+                    if let Some(i) = actual_value.as_i64() {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Integer(i)))
                     } else {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null))
                     }
                 },
-                "real" => {
-                    if let Some(f) = self.value.as_f64() {
+                SqlTypeHint::Real => {
+                    if let Some(f) = actual_value.as_f64() {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Real(f)))
                     } else {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null))
                     }
                 },
-                "text" | "datetime" => {
-                    if let Some(s) = self.value.as_str() {
+                SqlTypeHint::Text | SqlTypeHint::Datetime => {
+                    if let Some(s) = actual_value.as_str() {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(s.to_string())))
                     } else {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null))
                     }
                 },
-                "blob" => {
-                    if let Some(s) = self.value.as_str() {
+                SqlTypeHint::Blob => {
+                    if let Some(s) = actual_value.as_str() {
                         // For now, just store as text. Could add base64 decoding later if needed
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(s.to_string())))
                     } else {
                         Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null))
                     }
                 },
-                _ => self.value_to_sql(),
+                _ => self.value_to_sql_with_actual(actual_value),
             },
-            None => self.value_to_sql(),
+            None => self.value_to_sql_with_actual(actual_value),
         }
     }
 }
 
 impl TypedSqlParam {
     fn value_to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        match &self.value {
+        // Extract the actual value from the nested "value" field if it exists
+        let actual_value = if let Some(obj) = self.value.as_object() {
+            obj.get("value").unwrap_or(&self.value)
+        } else {
+            &self.value
+        };
+        self.value_to_sql_with_actual(actual_value)
+    }
+
+    fn value_to_sql_with_actual(&self, actual_value: &Value) -> rusqlite::Result<ToSqlOutput<'_>> {
+        match actual_value {
             Value::Null => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Null)),
             Value::Bool(b) => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Integer(if *b { 1 } else { 0 }))),
             Value::Number(n) => {
@@ -144,7 +187,7 @@ impl TypedSqlParam {
                 }
             },
             Value::String(s) => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(s.clone()))),
-            _ => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(self.value.to_string()))),
+            _ => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(actual_value.to_string()))),
         }
     }
 }
@@ -327,6 +370,7 @@ host_fn!(sqlite_execute_enhanced(user_data: GuestSqliteDbImproved; params: Enhan
 });
 
 host_fn!(sqlite_query_enhanced(user_data: GuestSqliteDbImproved; params: EnhancedSqlParams) -> EnhancedSqlResult {
+    info!("sqlite_query_enhanced received params: {:?}", params);
     query_enhanced(user_data, params)
 });
 
@@ -447,7 +491,24 @@ fn query_enhanced(
     while let Ok(Some(row)) = result.next() {
         let mut row_map = serde_json::Map::new();
         for (i, col_info) in columns.iter().enumerate() {
-            let value = row.get::<_, Value>(i)?;
+            let value = match row.get_ref(i)? {
+                rusqlite::types::ValueRef::Null => Value::Null,
+                rusqlite::types::ValueRef::Integer(i) => Value::Number(serde_json::Number::from(i)),
+                rusqlite::types::ValueRef::Real(f) => {
+                    if let Some(num) = serde_json::Number::from_f64(f) {
+                        Value::Number(num)
+                    } else {
+                        Value::Null
+                    }
+                },
+                rusqlite::types::ValueRef::Text(s) => {
+                    Value::String(String::from_utf8_lossy(s).to_string())
+                },
+                rusqlite::types::ValueRef::Blob(b) => {
+                    // Convert blob to base64 string for JSON representation
+                    Value::String(base64::encode(b))
+                },
+            };
             row_map.insert(col_info.name.clone(), value);
         }
         results.push(Value::Object(row_map));

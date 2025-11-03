@@ -171,6 +171,16 @@ components:
           description: Array of typed SQL parameters
           items:
             $ref: "#/components/schemas/TypedSqlParam"
+    SqlTypeHint:
+      description: Type hint for sql parameter
+      enum:
+        - text
+        - integer
+        - real
+        - blob
+        - boolean
+        - datetime
+        - _null
     TypedSqlParam:
       description: A SQL parameter with optional type hint for better type safety
       required:
@@ -180,7 +190,7 @@ components:
           type: object
           description: The parameter value (can be string, number, boolean, null, etc.)
         typeHint:
-          type: string
+          $ref: "#/components/schemas/SqlTypeHint"
           description: Optional type hint for the parameter
           nullable: true
     EnhancedSqlResult:

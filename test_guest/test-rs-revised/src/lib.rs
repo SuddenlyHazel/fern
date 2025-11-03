@@ -248,15 +248,15 @@ fn test_insert_data() -> types::TestStepResult {
         params: vec![
             types::TypedSqlParam {
                 value: name_value,
-                type_hint: Some("TEXT".to_string()),
+                type_hint: Some(types::SqlTypeHint::Text),
             },
             types::TypedSqlParam {
                 value: email_value,
-                type_hint: Some("TEXT".to_string()),
+                type_hint: Some(types::SqlTypeHint::Text),
             },
             types::TypedSqlParam {
                 value: age_value,
-                type_hint: Some("INTEGER".to_string()),
+                type_hint: Some(types::SqlTypeHint::Integer),
             },
         ],
     };
@@ -298,7 +298,7 @@ fn test_query_enhanced() -> types::TestStepResult {
         params: vec![
             types::TypedSqlParam {
                 value: age_param,
-                type_hint: Some("INTEGER".to_string()),
+                type_hint: Some(types::SqlTypeHint::Integer),
             },
         ],
     };
@@ -360,9 +360,9 @@ fn test_transactions() -> types::TestStepResult {
             let params = types::EnhancedSqlParams {
                 sql: insert_sql.to_string(),
                 params: vec![
-                    types::TypedSqlParam { value: name_value, type_hint: Some("TEXT".to_string()) },
-                    types::TypedSqlParam { value: email_value, type_hint: Some("TEXT".to_string()) },
-                    types::TypedSqlParam { value: age_value, type_hint: Some("INTEGER".to_string()) },
+                    types::TypedSqlParam { value: name_value, type_hint: Some(types::SqlTypeHint::Text) },
+                    types::TypedSqlParam { value: email_value, type_hint: Some(types::SqlTypeHint::Text) },
+                    types::TypedSqlParam { value: age_value, type_hint: Some(types::SqlTypeHint::Integer) },
                 ],
             };
 
@@ -518,9 +518,9 @@ fn test_transaction_rollback() -> types::TestStepResult {
             let params = types::EnhancedSqlParams {
                 sql: insert_sql.to_string(),
                 params: vec![
-                    types::TypedSqlParam { value: name_value, type_hint: Some("TEXT".to_string()) },
-                    types::TypedSqlParam { value: email_value, type_hint: Some("TEXT".to_string()) },
-                    types::TypedSqlParam { value: age_value, type_hint: Some("INTEGER".to_string()) },
+                    types::TypedSqlParam { value: name_value, type_hint: Some(types::SqlTypeHint::Text) },
+                    types::TypedSqlParam { value: email_value, type_hint: Some(types::SqlTypeHint::Text) },
+                    types::TypedSqlParam { value: age_value, type_hint: Some(types::SqlTypeHint::Integer) },
                 ],
             };
 

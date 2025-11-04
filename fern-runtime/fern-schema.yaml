@@ -2,14 +2,10 @@
 # Learn more at https://docs.xtp.dylibso.com/docs/concepts/xtp-schema
 version: v1-draft
 exports:
-  testEnhancedSql:
-    description: Test entry point that demonstrates all SQLite functionality
+  gossipMessageHandler:
+    description: Guest handler for incoming gossip messages
     input:
-      type: string
-      description: The input string
-      contentType: text/plain; charset=utf-8
-    output:
-      $ref: "#/components/schemas/SqliteTestResult"
+      $ref: "#/components/schemas/InboundGossipMsg"
       contentType: application/json
 imports:
   kv_store:
@@ -122,6 +118,15 @@ imports:
       type: string
       contentType: text/plain; charset=utf-8
       description: The message to log at ERROR level
+  broadcast_msg:
+    description: Broadcast a message to all peers in the gossip network
+    input:
+      $ref: "#/components/schemas/OutboundGossipMsg"
+      contentType: application/json
+    output:
+      type: boolean
+      contentType: application/x-binary
+      description: "No return value - operation success indicated by lack of error"
 components:
   schemas:
     KvStoreInput:
@@ -479,3 +484,19 @@ components:
           type: string
           description: The slowest database operation
           nullable: true
+    OutboundGossipMsg:
+      description: Message to be broadcast to the gossip network
+      required:
+        - content
+      properties:
+        content:
+          type: object
+          description: The JSON content to broadcast to peers
+    InboundGossipMsg:
+      description: Message received from the gossip network
+      required:
+        - content
+      properties:
+        content:
+          type: object
+          description: The JSON content received from a peer

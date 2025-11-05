@@ -10,6 +10,7 @@ use crate::data::Data;
 
 pub mod data;
 pub mod server;
+pub mod guest_instance;
 
 /// Fern Server - A weird distributed WASM runtime 🌿
 #[derive(Parser)]

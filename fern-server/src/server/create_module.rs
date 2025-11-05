@@ -1,10 +1,14 @@
+use std::collections::btree_map::Entry;
+
+use anyhow::anyhow;
 use fern_runtime::{guest::new_guest, iroh_helpers::iroh_bundle};
 use iroh::{Endpoint, EndpointId, protocol::RouterBuilder};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
     data::{Data, GuestRow},
-    server::Server,
+    guest_instance::GuestInstance,
+    server::{InstanceMap, Server},
 };
 
 pub struct CreateModule {
@@ -40,15 +44,27 @@ pub(crate) async fn handle_create_module(
     data: &Data,
     cmd: CreateModule,
     bootstrap: Vec<EndpointId>,
+    instance_map: &mut InstanceMap,
 ) -> anyhow::Result<()> {
+    let entry = match instance_map.entry(cmd.name.clone()) {
+        Entry::Vacant(vacant_entry) => vacant_entry,
+        Entry::Occupied(_) => {
+            return Err(anyhow!("Module with name {} already exists", cmd.name));
+        }
+    };
+
     let (endpoint, router_builder) = iroh_bundle().await?;
     let guest_row = GuestRow::create(data, cmd.name, cmd.module)?;
 
     let guest = new_guest(guest_row.module, (endpoint, router_builder, bootstrap))?;
+
+    let guest_instance = GuestInstance::new(guest);
+    let endpoint_id = guest_instance.node_id();
+
+    entry.insert(guest_instance);
+
     cmd.reply
-        .send(CreateResponse {
-            endpoint_id: guest.get_node_id(),
-        })
+        .send(CreateResponse { endpoint_id })
         .map_err(|_| anyhow::anyhow!("Failed to send response"))?;
     Ok(())
 }

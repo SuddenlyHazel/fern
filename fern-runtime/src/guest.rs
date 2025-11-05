@@ -51,6 +51,10 @@ impl Guest {
         Ok(())
     }
 
+    pub fn shutdown(&self) {
+        
+    }
+
     pub fn get_node_id(&self) -> EndpointId {
         self.endpoint.id()
     }

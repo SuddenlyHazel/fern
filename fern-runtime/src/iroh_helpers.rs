@@ -1,7 +1,16 @@
-use iroh::{Endpoint, discovery::dns::DnsDiscovery, protocol::RouterBuilder};
+use iroh::{Endpoint, SecretKey, discovery::dns::DnsDiscovery, protocol::RouterBuilder};
 
 pub async fn iroh_bundle() -> anyhow::Result<(Endpoint, RouterBuilder)> {
     let endpoint = Endpoint::builder().discovery(DnsDiscovery::n0_dns().build());
+
+    let endpoint = endpoint.bind().await?;
+
+    let router = RouterBuilder::new(endpoint.clone());
+    Ok((endpoint, router))
+}
+
+pub async fn iroh_bundle_with_secret(secret_key : SecretKey) -> anyhow::Result<(Endpoint, RouterBuilder)> {
+    let endpoint = Endpoint::builder().secret_key(secret_key).discovery(DnsDiscovery::n0_dns().build());
 
     let endpoint = endpoint.bind().await?;
 

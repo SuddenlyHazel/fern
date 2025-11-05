@@ -4,7 +4,6 @@ use iroh::{
     Endpoint, EndpointId,
     protocol::{Router, RouterBuilder},
 };
-use serde_json::json;
 
 use crate::{
     guest_fns::{
@@ -51,9 +50,7 @@ impl Guest {
         Ok(())
     }
 
-    pub fn shutdown(&self) {
-        
-    }
+    pub fn shutdown(&self) {}
 
     pub fn get_node_id(&self) -> EndpointId {
         self.endpoint.id()
@@ -161,7 +158,7 @@ async fn test_rust_guest_gossip() {
     }
 }
 
-async fn test_guest(bootstrap : Vec<EndpointId>) -> anyhow::Result<Guest> {
+async fn test_guest(bootstrap: Vec<EndpointId>) -> anyhow::Result<Guest> {
     let (endpoint, router) = iroh_bundle().await.unwrap();
     let test_module =
         include_bytes!("../../test_guest/test-rs-gossip/target/wasm32-wasip1/release/plugin.wasm");

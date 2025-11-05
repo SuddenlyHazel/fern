@@ -9,8 +9,12 @@ pub async fn iroh_bundle() -> anyhow::Result<(Endpoint, RouterBuilder)> {
     Ok((endpoint, router))
 }
 
-pub async fn iroh_bundle_with_secret(secret_key : SecretKey) -> anyhow::Result<(Endpoint, RouterBuilder)> {
-    let endpoint = Endpoint::builder().secret_key(secret_key).discovery(DnsDiscovery::n0_dns().build());
+pub async fn iroh_bundle_with_secret(
+    secret_key: SecretKey,
+) -> anyhow::Result<(Endpoint, RouterBuilder)> {
+    let endpoint = Endpoint::builder()
+        .secret_key(secret_key)
+        .discovery(DnsDiscovery::n0_dns().build());
 
     let endpoint = endpoint.bind().await?;
 

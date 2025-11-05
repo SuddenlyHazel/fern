@@ -248,3 +248,6 @@ config.local.*
 
 /external
 /llm
+
+*.fern
+*.key

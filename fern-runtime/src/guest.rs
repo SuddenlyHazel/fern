@@ -23,10 +23,10 @@ const SQL_TEST: &str = "testEnhancedSql";
 pub type IrohBundle = (Endpoint, RouterBuilder, Vec<EndpointId>);
 
 pub struct Guest {
-    plugin: Plugin,
-    network_data: NetworkUserData,
-    router: Router,
-    endpoint: Endpoint,
+    pub plugin: Plugin,
+    pub network_data: NetworkUserData,
+    pub router: Router,
+    pub endpoint: Endpoint,
 }
 
 impl Guest {
@@ -49,6 +49,10 @@ impl Guest {
         }
 
         Ok(())
+    }
+
+    pub fn get_node_id(&self) -> EndpointId {
+        self.endpoint.id()
     }
 }
 

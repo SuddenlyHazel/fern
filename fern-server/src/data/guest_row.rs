@@ -1,5 +1,3 @@
-use rusqlite::Connection;
-
 use crate::data::{Data, ModuleRow};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -30,7 +28,8 @@ impl GuestRow {
 
     pub fn by_id(data: &Data, id: i64) -> rusqlite::Result<Option<GuestRow>> {
         let conn = &data.conn;
-        let mut stmt = conn.prepare("SELECT id, name, module, module_hash FROM guests WHERE id = ?1")?;
+        let mut stmt =
+            conn.prepare("SELECT id, name, module, module_hash FROM guests WHERE id = ?1")?;
         let mut rows = stmt.query_map([id], |row| {
             Ok(GuestRow {
                 id: row.get(0)?,
@@ -48,7 +47,8 @@ impl GuestRow {
 
     pub fn by_name(data: &Data, name: &str) -> rusqlite::Result<Option<GuestRow>> {
         let conn = &data.conn;
-        let mut stmt = conn.prepare("SELECT id, name, module, module_hash FROM guests WHERE name = ?1")?;
+        let mut stmt =
+            conn.prepare("SELECT id, name, module, module_hash FROM guests WHERE name = ?1")?;
         let mut rows = stmt.query_map([name], |row| {
             Ok(GuestRow {
                 id: row.get(0)?,
@@ -66,7 +66,7 @@ impl GuestRow {
 
     pub fn update_module_by_name(data: &Data, name: &str, module: &[u8]) -> rusqlite::Result<bool> {
         let new_module_hash = blake3::hash(module).to_string();
-        
+
         // First, get the current guest to save their old module to history
         if let Some(current_guest) = Self::by_name(data, name)? {
             // Save the current module to history before updating
@@ -77,7 +77,7 @@ impl GuestRow {
                 current_guest.module_hash,
             )?;
         }
-        
+
         // Now update the guest with the new module
         let conn = &data.conn;
         let rows_affected = conn.execute(
@@ -93,8 +93,9 @@ impl GuestRow {
         offset: i64,
     ) -> rusqlite::Result<Vec<GuestRow>> {
         let conn = &data.conn;
-        let mut stmt =
-            conn.prepare("SELECT id, name, module, module_hash FROM guests ORDER BY id LIMIT ?1 OFFSET ?2")?;
+        let mut stmt = conn.prepare(
+            "SELECT id, name, module, module_hash FROM guests ORDER BY id LIMIT ?1 OFFSET ?2",
+        )?;
         let rows = stmt.query_map([limit, offset], |row| {
             Ok(GuestRow {
                 id: row.get(0)?,

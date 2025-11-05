@@ -1,4 +1,4 @@
-use std::{path::{Path, PathBuf}, sync::Arc};
+use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -6,11 +6,9 @@ use iroh::{Endpoint, SecretKey, discovery::dns::DnsDiscovery, protocol::Router};
 use log::{error, info, warn};
 use tokio::{fs::File, io::AsyncWriteExt};
 
-use crate::data::Data;
-
 pub mod data;
-pub mod server;
 pub mod guest_instance;
+pub mod server;
 
 /// Fern Server - A weird distributed WASM runtime 🌿
 #[derive(Parser)]
@@ -54,7 +52,7 @@ async fn handle_start_command(secret_path: Option<PathBuf>) -> Result<()> {
         .secret_key(secret)
         .bind()
         .await?;
-    
+
     let router_builder = Router::builder(endpoint.clone());
 
     info!("Starting Fern server {:#?}", endpoint.addr());

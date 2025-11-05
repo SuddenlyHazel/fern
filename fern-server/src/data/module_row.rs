@@ -46,17 +46,19 @@ impl ModuleRow {
              FROM module_history
              WHERE parent_id = ?1
              ORDER BY created_at DESC
-             LIMIT 1"
+             LIMIT 1",
         )?;
-        
+
         let mut rows = stmt.query_map([guest_id], |row| {
             let created_at_str: String = row.get(4)?;
             let created_at = DateTime::parse_from_rfc3339(&created_at_str)
-                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(
-                    4,
-                    rusqlite::types::Type::Text,
-                    Box::new(e),
-                ))?
+                .map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        4,
+                        rusqlite::types::Type::Text,
+                        Box::new(e),
+                    )
+                })?
                 .with_timezone(&Utc);
 
             Ok(ModuleRow {
@@ -83,24 +85,18 @@ mod tests {
     #[test]
     fn test_module_row_operations() {
         let data = Data::new_memory();
-        
+
         // Create a guest first
-        let guest = GuestRow::create(
-            &data,
-            "test_guest".to_string(),
-            vec![1, 2, 3, 4],
-        ).expect("failed to create guest");
+        let guest = GuestRow::create(&data, "test_guest".to_string(), vec![1, 2, 3, 4])
+            .expect("failed to create guest");
 
         // Create a module history entry
         let module_data = vec![5, 6, 7, 8];
         let module_hash = blake3::hash(&module_data).to_string();
-        
-        let module_row = ModuleRow::create(
-            &data,
-            guest.id,
-            module_data.clone(),
-            module_hash.clone(),
-        ).expect("failed to create module row");
+
+        let module_row =
+            ModuleRow::create(&data, guest.id, module_data.clone(), module_hash.clone())
+                .expect("failed to create module row");
 
         assert_eq!(module_row.parent_id, guest.id);
         assert_eq!(module_row.module, module_data);
@@ -118,13 +114,10 @@ mod tests {
         // Create another module entry for the same guest
         let module_data2 = vec![9, 10, 11, 12];
         let module_hash2 = blake3::hash(&module_data2).to_string();
-        
-        let module_row2 = ModuleRow::create(
-            &data,
-            guest.id,
-            module_data2.clone(),
-            module_hash2.clone(),
-        ).expect("failed to create second module row");
+
+        let module_row2 =
+            ModuleRow::create(&data, guest.id, module_data2.clone(), module_hash2.clone())
+                .expect("failed to create second module row");
 
         // Latest should now return the second module
         let latest = ModuleRow::latest_by_guest_id(&data, guest.id)
@@ -135,8 +128,8 @@ mod tests {
         assert_eq!(latest.module, module_data2);
 
         // Test with non-existent guest id
-        let no_module = ModuleRow::latest_by_guest_id(&data, 999)
-            .expect("failed to query non-existent guest");
+        let no_module =
+            ModuleRow::latest_by_guest_id(&data, 999).expect("failed to query non-existent guest");
         assert!(no_module.is_none());
     }
 }

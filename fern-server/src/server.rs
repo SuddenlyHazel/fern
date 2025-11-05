@@ -1,15 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use fern_runtime::{guest::new_guest, iroh_helpers::iroh_bundle};
-use iroh::{
-    Endpoint, EndpointId,
-    protocol::{Router, RouterBuilder},
-};
-use iroh_gossip::Gossip;
-use tokio::{
-    sync::{mpsc, oneshot},
-    task::JoinHandle,
-};
+use iroh::{Endpoint, protocol::RouterBuilder};
+use tokio::{sync::mpsc, task::JoinHandle};
 
 use crate::{data::Data, guest_instance::GuestInstance, server::gossip::setup_gossip};
 
@@ -74,13 +66,15 @@ pub async fn server_task(
     while let Some(cmd) = command_receiver.recv().await {
         let res = match cmd {
             Commands::CreateModule(create_module) => {
-                handle_create_module(&data, create_module, bootstrap.clone(), &mut instance_map).await
+                handle_create_module(&data, create_module, bootstrap.clone(), &mut instance_map)
+                    .await
             }
             Commands::UpdateBootstrap(update_bootstrap) => {
                 handle_update_bootstrap(update_bootstrap, &mut bootstrap).await
             }
             Commands::UpdateModule(update_module) => {
-                handle_update_module(&data, update_module, &mut instance_map, bootstrap.clone()).await
+                handle_update_module(&data, update_module, &mut instance_map, bootstrap.clone())
+                    .await
             }
         };
     }

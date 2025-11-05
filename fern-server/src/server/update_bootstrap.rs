@@ -14,12 +14,11 @@ impl Server {
         nodes: Vec<EndpointId>,
     ) -> anyhow::Result<UpdateBootstrapResponse> {
         let (tx, rx) = oneshot::channel();
-        let cmd = UpdateBootstrap {
-            nodes,
-            reply: tx,
-        };
+        let cmd = UpdateBootstrap { nodes, reply: tx };
 
-        self.sender.send(super::Commands::UpdateBootstrap(cmd)).await?;
+        self.sender
+            .send(super::Commands::UpdateBootstrap(cmd))
+            .await?;
 
         Ok(rx.await?)
     }
@@ -36,13 +35,13 @@ pub(crate) async fn handle_update_bootstrap(
 ) -> anyhow::Result<()> {
     // Update the bootstrap vector with the new nodes
     *bootstrap = cmd.nodes.clone();
-    
+
     cmd.reply
         .send(UpdateBootstrapResponse {
             success: true,
             node_count: cmd.nodes.len(),
         })
         .map_err(|_| anyhow::anyhow!("Failed to send response"))?;
-    
+
     Ok(())
 }

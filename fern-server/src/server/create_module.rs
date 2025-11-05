@@ -2,8 +2,8 @@ use std::collections::btree_map::Entry;
 
 use anyhow::anyhow;
 use fern_runtime::{guest::new_guest, iroh_helpers::iroh_bundle};
-use iroh::{Endpoint, EndpointId, protocol::RouterBuilder};
-use tokio::sync::{mpsc, oneshot};
+use iroh::EndpointId;
+use tokio::sync::oneshot;
 
 use crate::{
     data::{Data, GuestRow},

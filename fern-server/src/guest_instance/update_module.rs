@@ -1,6 +1,9 @@
 use std::mem;
 
-use fern_runtime::{guest::{Guest, new_guest}, iroh_helpers::iroh_bundle_with_secret};
+use fern_runtime::{
+    guest::{Guest, new_guest},
+    iroh_helpers::iroh_bundle_with_secret,
+};
 use iroh::EndpointId;
 use tokio::sync::oneshot;
 
@@ -8,7 +11,7 @@ pub struct UpdateModule {
     pub module: Vec<u8>,
     pub module_hash: String,
     pub reply: oneshot::Sender<UpdateModuleResponse>,
-    pub bootstrap : Vec<EndpointId>,
+    pub bootstrap: Vec<EndpointId>,
 }
 
 pub struct UpdateModuleResponse {

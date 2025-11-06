@@ -24,7 +24,7 @@ pub(crate) fn shutdown() -> Result<(), Error> {
 
 // Handle called on guest functions per tick (5 times a second best effort)
 pub(crate) fn tick() -> Result<(), Error> {
-    guest_info("helloworld::tick".into());
+    guest_info("helloworld::tock".into());
 
     Ok(())
 }

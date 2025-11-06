@@ -44,3 +44,15 @@ pub async fn create_guest(req: CreateGuest) -> Result<String> {
     let res = ext.server.create_module(req.name, req.module).await?;
     Ok(res.endpoint_id.to_string())
 }
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub struct UpdateGuest {
+    pub name: String,
+    pub module: Vec<u8>
+}
+
+#[put("/api/server/guest", ext: crate::AppStateExtension)]
+pub async fn update_guest(req: UpdateGuest) -> Result<bool> {
+    let res = ext.server.update_module(req.name, req.module).await?;
+    Ok(res.success)
+}

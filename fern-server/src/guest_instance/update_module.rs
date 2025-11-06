@@ -1,7 +1,7 @@
 use std::mem;
 
 use fern_runtime::{
-    guest::{Guest, new_guest},
+    guest::{Guest, new_guest, new_guest_with_userdata},
     iroh_helpers::iroh_bundle_with_secret,
 };
 use iroh::EndpointId;
@@ -62,7 +62,8 @@ async fn perform_module_update(
     // 3. Create a new guest with the updated module using the same secret key
     log::info!("Creating new guest instance with updated module");
     let (endpoint, router_builder) = iroh_bundle_with_secret(secret_key).await?;
-    let mut new_guest = new_guest(module, (endpoint, router_builder, bootstrap))?;
+
+    let mut new_guest = new_guest_with_userdata(module, (endpoint, router_builder, bootstrap), Some(guest.plugin_userdata.clone()))?;
 
     // TODO how should we handle a guest failing to initialize here?
     // at the very least we should report it..

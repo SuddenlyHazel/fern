@@ -301,8 +301,9 @@ pub struct QueryExplanation {
 
 pub fn attach_guest_sqlite_improved(
     builder: PluginBuilder,
+    existing_user_data: Option<UserData<GuestSqliteDbImproved>>,
 ) -> (PluginBuilder, UserData<GuestSqliteDbImproved>) {
-    let user_data = UserData::new(GuestSqliteDbImproved::new());
+    let user_data = existing_user_data.unwrap_or_else(|| UserData::new(GuestSqliteDbImproved::new()));
     let builder = builder
         .with_function(
             "sqlite_execute_enhanced",

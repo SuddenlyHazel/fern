@@ -73,8 +73,16 @@ pub struct NetworkUserData {
 }
 
 pub fn new_guest(guest_module: impl Into<Wasm>, iroh: IrohBundle) -> anyhow::Result<Guest> {
+    new_guest_with_userdata(guest_module, iroh, None)
+}
+
+pub fn new_guest_with_userdata(
+    guest_module: impl Into<Wasm>,
+    iroh: IrohBundle,
+    existing_user_data: Option<PluginUserData>
+) -> anyhow::Result<Guest> {
     let (plugin, plugin_userdata, Some((endpoint, router, bootstrap)), Some(network_data)) =
-        new_plugin(guest_module, Some(iroh))?
+        new_plugin(guest_module, Some(iroh), existing_user_data)?
     else {
         return Err(anyhow!(
             "plugin didn't return iroh bundle and network stack. this should be impossible"
@@ -99,12 +107,16 @@ pub struct PluginUserData {
 pub fn new_plugin(
     guest_module: impl Into<Wasm>,
     mut iroh: Option<IrohBundle>,
+    existing_user_data: Option<PluginUserData>,
 ) -> anyhow::Result<(Plugin, PluginUserData, Option<IrohBundle>, Option<NetworkUserData>)> {
     let manifest = Manifest::new([guest_module]).with_config_key("id", uuid::Uuid::new_v4());
     let builder = PluginBuilder::new(manifest).with_wasi(true);
 
     let builder = guest_fns::kv::attach_guest_kv(builder);
-    let (builder, sqlite) = guest_fns::sqlite_improved::attach_guest_sqlite_improved(builder);
+    let (builder, sqlite) = guest_fns::sqlite_improved::attach_guest_sqlite_improved(
+        builder,
+        existing_user_data.as_ref().map(|ud| ud.sqlite.clone())
+    );
     let mut builder = guest_fns::debug::attach_guest_debug(builder);
 
     let mut network_user_data = None;
@@ -142,7 +154,7 @@ fn test_rust_guest() {
 
     let test_module =
         include_bytes!("../../test_guest/test-rs-revised/target/wasm32-wasip1/release/plugin.wasm");
-    let (mut guest, _, _, _) = new_plugin(test_module.to_vec(), None).expect("failed to create guest");
+    let (mut guest, _, _, _) = new_plugin(test_module.to_vec(), None, None).expect("failed to create guest");
     let r = guest.call::<&str, serde_json::Value>(SQL_TEST, "hello");
     info!("{r:#?}");
 }

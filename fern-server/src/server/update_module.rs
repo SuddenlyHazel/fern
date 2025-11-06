@@ -35,6 +35,7 @@ impl Server {
     }
 }
 
+#[derive(Debug)]
 pub struct UpdateResponse {
     pub success: bool,
     pub module_hash: String,

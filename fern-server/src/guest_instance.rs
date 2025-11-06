@@ -1,11 +1,13 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    thread::{self, JoinHandle},
+};
 
 use fern_runtime::guest::Guest;
 use iroh::EndpointId;
 use log::warn;
 use tokio::{
     sync::mpsc,
-    task::JoinHandle,
     time::{Duration, interval},
 };
 
@@ -30,7 +32,9 @@ impl GuestInstance {
         let (sender, receiver) = mpsc::channel(100);
 
         let node_id = guest.get_node_id();
-        let handle = tokio::spawn(guest_instance_task(receiver, guest)).into();
+
+        let handle = thread::spawn(move || guest_instance_thread(guest, receiver)).into();
+
         Self {
             handle,
             sender,
@@ -59,6 +63,14 @@ impl GuestInstance {
     pub fn node_id(&self) -> EndpointId {
         self.node_id.clone()
     }
+}
+
+fn guest_instance_thread(guest: Guest, receiver: CommandReceiver) -> anyhow::Result<()> {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+    rt.block_on(guest_instance_task(receiver, guest))?;
+    Ok(())
 }
 
 async fn guest_instance_task(
@@ -93,6 +105,7 @@ async fn guest_instance_task(
 
 async fn tick_guest(guest: &mut Guest) -> anyhow::Result<()> {
     guest.tick_gossip().await?;
+    guest.tick()?;
     Ok(())
 }
 

@@ -36,6 +36,7 @@ impl Server {
     }
 }
 
+#[derive(Debug)]
 pub struct CreateResponse {
     pub endpoint_id: EndpointId,
 }
@@ -56,11 +57,15 @@ pub(crate) async fn handle_create_module(
     let (endpoint, router_builder) = iroh_bundle().await?;
     let guest_row = GuestRow::create(data, cmd.name, cmd.module)?;
 
-    let guest = new_guest(guest_row.module, (endpoint, router_builder, bootstrap))?;
+    let mut guest = new_guest(guest_row.module, (endpoint, router_builder, bootstrap))?;
 
+    // TODO report module initialize failure
+    guest.initialize()?;
+    
     let guest_instance = GuestInstance::new(guest);
     let endpoint_id = guest_instance.node_id();
 
+    
     entry.insert(guest_instance);
 
     cmd.reply

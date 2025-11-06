@@ -13,11 +13,11 @@ use crate::{
     iroh_helpers::iroh_bundle,
 };
 
-const PRE_INIT_FN: &str = "preInit";
-const POST_INIT_FN: &str = "postInit";
 const MESSAGE_FN: &str = "gossipMessageHandler";
-
 const SQL_TEST: &str = "testEnhancedSql";
+const SHUTDOWN_FN: &str = "shutdown";
+const TICK_FN: &str = "tick";
+const INIT_FN: &str = "init";
 
 pub type IrohBundle = (Endpoint, RouterBuilder, Vec<EndpointId>);
 
@@ -50,7 +50,17 @@ impl Guest {
         Ok(())
     }
 
-    pub fn shutdown(&self) {}
+    pub fn initialize(&mut self) -> anyhow::Result<()> {
+        Ok(self.plugin.call(INIT_FN, ())?)
+    }
+
+    pub fn shutdown(&mut self) -> anyhow::Result<()> {
+        Ok(self.plugin.call(SHUTDOWN_FN, ())?)
+    }
+
+    pub fn tick(&mut self) -> anyhow::Result<()> {
+        Ok(self.plugin.call(TICK_FN, ())?)
+    }
 
     pub fn get_node_id(&self) -> EndpointId {
         self.endpoint.id()

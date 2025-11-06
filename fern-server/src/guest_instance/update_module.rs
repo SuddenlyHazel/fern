@@ -55,7 +55,7 @@ async fn perform_module_update(
 
     // 2. Gracefully shutdown the existing guest
     log::info!("Shutting down existing guest instance");
-    guest.shutdown();
+    let _ = guest.shutdown();
     guest.endpoint.close().await;
     let _ = guest.router.shutdown().await;
 
@@ -64,11 +64,18 @@ async fn perform_module_update(
     let (endpoint, router_builder) = iroh_bundle_with_secret(secret_key).await?;
     let mut new_guest = new_guest(module, (endpoint, router_builder, bootstrap))?;
 
+    // TODO how should we handle a guest failing to initialize here?
+    // at the very least we should report it..
+    // Should we rollback? Just allow it to be created and failing?
+    let _ = new_guest.initialize();
+
     // 4. Swap the guests - the old guest will be dropped
     // NOTE: After this swap, `new_guest` contains the old guest instance
     mem::swap(guest, &mut new_guest);
 
     // 5. Clean up the old guest instance (now in new_guest)
+    //    we don't really have to force a drop. But, this way
+    //    accidents might be avoided in future.
     drop(new_guest);
 
     log::info!("Guest module update completed successfully");

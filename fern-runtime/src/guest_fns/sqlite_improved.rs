@@ -299,9 +299,11 @@ pub struct QueryExplanation {
     pub sqlite_version: String,
 }
 
-pub fn attach_guest_sqlite_improved(builder: PluginBuilder) -> PluginBuilder {
+pub fn attach_guest_sqlite_improved(
+    builder: PluginBuilder,
+) -> (PluginBuilder, UserData<GuestSqliteDbImproved>) {
     let user_data = UserData::new(GuestSqliteDbImproved::new());
-    builder
+    let builder = builder
         .with_function(
             "sqlite_execute_enhanced",
             [PTR],
@@ -364,7 +366,9 @@ pub fn attach_guest_sqlite_improved(builder: PluginBuilder) -> PluginBuilder {
             [PTR],
             user_data.clone(),
             sqlite_rollback_transaction,
-        )
+        );
+
+    (builder, user_data)
 }
 
 host_fn!(sqlite_execute_enhanced(user_data: GuestSqliteDbImproved; params: EnhancedSqlParams) -> EnhancedSqlResult {

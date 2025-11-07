@@ -7,6 +7,8 @@ use fern_runtime::{
 use iroh::EndpointId;
 use tokio::sync::oneshot;
 
+use crate::data::GuestRow;
+
 pub struct UpdateModule {
     pub module: Vec<u8>,
     pub module_hash: String,

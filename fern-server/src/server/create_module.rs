@@ -3,6 +3,7 @@ use std::collections::btree_map::Entry;
 use anyhow::anyhow;
 use fern_runtime::{guest::new_guest, iroh_helpers::iroh_bundle};
 use iroh::EndpointId;
+use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 
 use crate::{
@@ -36,7 +37,7 @@ impl Server {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CreateResponse {
     pub endpoint_id: EndpointId,
 }
@@ -62,7 +63,7 @@ pub(crate) async fn handle_create_module(
     // TODO report module initialize failure
     guest.initialize()?;
     
-    let guest_instance = GuestInstance::new(guest);
+    let guest_instance = GuestInstance::new(guest, guest_row.module_hash, guest_row.id);
     let endpoint_id = guest_instance.node_id();
 
     

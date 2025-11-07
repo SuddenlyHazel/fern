@@ -26,3 +26,6 @@ clap = { version = "4.5.51", features = ["derive"] }
 rand = "0.9.2"
 blake3 = { version = "1.8.2", features = ["digest"] }
 chrono = "0.4.42"
+axum = "0.8.6"
+reqwest = { version = "0.12", features = ["json"] }
+iocraft = "0.7.14"

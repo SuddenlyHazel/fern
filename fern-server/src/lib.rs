@@ -14,11 +14,17 @@ use tokio::{fs::File, io::AsyncWriteExt, task::LocalSet};
 pub mod data;
 pub mod guest_instance;
 pub mod server;
+pub mod api;
+pub mod cli;
 
 // Re-export commonly used types
 pub use data::Data;
 pub use guest_instance::GuestInstance;
-pub use server::Server;
+pub use server::{Server, GuestInfo};
+pub use api::FernApiClient;
+
+use crate::api::api_server;
+
 
 /// Start a Fern server with the given secret key
 pub async fn start_server(secret_path: Option<PathBuf>) -> Result<()> {
@@ -46,6 +52,7 @@ pub async fn start_server(secret_path: Option<PathBuf>) -> Result<()> {
         .run_until(async move {
             let server = Server::new(endpoint, router_builder);
 
+            tokio::spawn(api_server(server));
             // let hello_world_module = include_bytes!("../../sample-guests/hello-world.wasm");
 
             // let r = server

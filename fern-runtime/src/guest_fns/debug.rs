@@ -1,5 +1,6 @@
 use extism::{PTR, PluginBuilder, UserData, host_fn};
 use log::{error, info, warn};
+use std::thread;
 
 pub fn attach_guest_debug(builder: PluginBuilder) -> PluginBuilder {
     let user_data = UserData::new(());
@@ -10,16 +11,19 @@ pub fn attach_guest_debug(builder: PluginBuilder) -> PluginBuilder {
 }
 
 host_fn!(guest_info(_user_data: (); message: String) -> () {
-    info!("{}", message);
+    let thread_id = thread::current().id();
+    info!("thread_id={:?}, {}", thread_id, message);
     Ok(())
 });
 
 host_fn!(guest_warn(_user_data: (); message: String) -> () {
-    warn!("{}", message);
+    let thread_id = thread::current().id();
+    warn!("thread_id={:?}, {}", thread_id, message);
     Ok(())
 });
 
 host_fn!(guest_error(_user_data: (); message: String) -> () {
-    error!("{}", message);
+    let thread_id = thread::current().id();
+    error!("thread_id={:?}, {}", thread_id, message);
     Ok(())
 });

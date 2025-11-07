@@ -2,6 +2,7 @@ use std::collections::btree_map::Entry;
 
 use anyhow::anyhow;
 use iroh::EndpointId;
+use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 
 use crate::{
@@ -35,7 +36,7 @@ impl Server {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateResponse {
     pub success: bool,
     pub module_hash: String,
@@ -48,7 +49,7 @@ pub(crate) async fn handle_update_module(
     instance_map: &mut InstanceMap,
     bootstrap: Vec<EndpointId>,
 ) -> anyhow::Result<()> {
-    let entry = match instance_map.entry(cmd.name.clone()) {
+    let mut entry = match instance_map.entry(cmd.name.clone()) {
         Entry::Vacant(_) => {
             return Err(anyhow!("Guest with name {} does not exist", cmd.name));
         }
@@ -71,7 +72,7 @@ pub(crate) async fn handle_update_module(
     // Only proceed with guest instance update if database update was successful
     let final_success = if db_update_success {
         // Send the command to update the guest instance
-        let guest_instance = entry.get();
+        let guest_instance = entry.get_mut();
         let UpdateModuleResponse {
             success: instance_update_success,
             error_message,

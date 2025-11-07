@@ -14,6 +14,8 @@ use tokio::{
 pub mod update_module;
 pub use update_module::*;
 
+use crate::data::GuestRow;
+
 pub enum GuestCommand {
     UpdateModule(update_module::UpdateModule),
 }
@@ -24,11 +26,13 @@ pub type CommandReceiver = mpsc::Receiver<GuestCommand>;
 pub struct GuestInstance {
     sender: CommandSender,
     node_id: EndpointId,
+    pub module_hash: String,
+    pub id : i64,
     handle: Arc<JoinHandle<anyhow::Result<()>>>,
 }
 
 impl GuestInstance {
-    pub fn new(guest: Guest) -> Self {
+    pub fn new(guest: Guest, module_hash: String, id : i64) -> Self {
         let (sender, receiver) = mpsc::channel(100);
 
         let node_id = guest.get_node_id();
@@ -39,11 +43,13 @@ impl GuestInstance {
             handle,
             sender,
             node_id,
+            id,
+            module_hash
         }
     }
 
     pub async fn update_module(
-        &self,
+        &mut self,
         module: Vec<u8>,
         module_hash: String,
         bootstrap: Vec<EndpointId>,
@@ -51,13 +57,17 @@ impl GuestInstance {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cmd = update_module::UpdateModule {
             module,
-            module_hash,
+            module_hash: module_hash.clone(),
             bootstrap,
             reply: tx,
         };
 
         self.sender.send(GuestCommand::UpdateModule(cmd)).await?;
-        Ok(rx.await?)
+        let res = rx.await?;
+        if res.success {
+            self.module_hash = module_hash.clone();
+        }
+        Ok(res)
     }
 
     pub fn node_id(&self) -> EndpointId {

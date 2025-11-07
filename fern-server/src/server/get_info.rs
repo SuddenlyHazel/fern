@@ -1,4 +1,5 @@
 use iroh::{Endpoint, EndpointId};
+use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 
 use crate::server::{InstanceMap, Server};
@@ -7,9 +8,11 @@ pub struct NodeAddress {
     pub reply: oneshot::Sender<NodeAddressResponse>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GuestInfo {
     pub name: String,
     pub endpoint_id: EndpointId,
+    pub module_hash: String,
 }
 
 pub struct Guests {
@@ -84,6 +87,7 @@ pub(crate) async fn handle_guests(cmd: Guests, instance_map: &InstanceMap) -> an
         res.push(GuestInfo {
             name: name.clone(),
             endpoint_id: instance.node_id(),
+            module_hash: instance.module_hash.clone(),
         });
     }
 

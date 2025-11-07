@@ -75,42 +75,7 @@ pub fn Hero() -> Element {
                     }
                     button {
                         class: "bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2",
-                        "🔍 View Logs"
-                    }
-                    button {
-                        class: "bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2",
-                        "⚙️ Configuration"
-                    }
-                    button {
-                        class: "bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2",
                         "📊 Metrics"
-                    }
-                }
-            }
-            
-            // System info summary
-            div {
-                class: "bg-gray-800 border border-gray-700 rounded-lg p-6",
-                h3 {
-                    class: "text-lg font-semibold text-white mb-4",
-                    "System Information"
-                }
-                div {
-                    class: "grid grid-cols-1 md:grid-cols-3 gap-4",
-                    div {
-                        class: "flex justify-between items-center py-2",
-                        span { class: "text-gray-400 text-sm", "Runtime:" }
-                        span { class: "text-white text-sm font-medium", "Extism + Iroh" }
-                    }
-                    div {
-                        class: "flex justify-between items-center py-2",
-                        span { class: "text-gray-400 text-sm", "Status:" }
-                        span { class: "text-yellow-400 text-sm font-medium", "Proof of Concept" }
-                    }
-                    div {
-                        class: "flex justify-between items-center py-2",
-                        span { class: "text-gray-400 text-sm", "Plugins:" }
-                        span { class: "text-green-400 text-sm font-medium", "Ready to Deploy" }
                     }
                 }
             }

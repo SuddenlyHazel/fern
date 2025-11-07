@@ -13,6 +13,7 @@ fern-server = {path = "../fern-server", optional = true}
 serde = { version = "1.0.228", features = ["derive"] }
 env_logger = { version = "0.11.8", optional = true }
 log = { version = "0.4", optional = true }
+tokio = { version = "1.48.0", features = ["full"], optional = true }
 
 [features]
 default = ["web"]
@@ -23,4 +24,5 @@ desktop = ["dioxus/desktop"]
 # The feature that are only required for the mobile = ["dioxus/mobile"] build target should be optional and only enabled in the mobile = ["dioxus/mobile"] feature
 mobile = ["dioxus/mobile"]
 # The feature that are only required for the server = ["dioxus/server"] build target should be optional and only enabled in the server = ["dioxus/server"] feature
-server = ["dioxus/server", "fern-runtime", "fern-server", "env_logger", "log"]
+server = ["dioxus/server", "fern-runtime", "fern-server", "env_logger", "log", "tokio"]
+tokio = ["dep:tokio"]

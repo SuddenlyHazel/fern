@@ -6,16 +6,18 @@ pub fn CreateGuestForm() -> Element {
     let mut name = use_signal(|| String::new());
     let mut file_data = use_signal(|| Option::<Vec<u8>>::None);
     let mut file_name = use_signal(|| String::new());
+    let mut file_value = use_signal(|| vec![]);
     let mut is_creating = use_signal(|| false);
     let mut create_result = use_signal(|| Option::<Result<String, String>>::None);
+    let mut file_input_key = use_signal(|| 0u32);
 
     let handle_file_change = move |evt: Event<FormData>| {
         let files = evt.files();
         if !files.is_empty() {
             let file = files[0].clone();
             let file_name_clone = file.name();
-            file_name.set(file_name_clone);
-            
+            file_name.set(file_name_clone.clone());
+            file_value.set(vec![file_name_clone]);
             spawn(async move {
                 match file.read_bytes().await {
                     Ok(contents) => {
@@ -26,6 +28,11 @@ pub fn CreateGuestForm() -> Element {
                     }
                 }
             });
+        } else {
+            // Clear file data when no file is selected
+            file_name.set(String::new());
+            file_data.set(None);
+            file_value.clear();
         }
     };
 
@@ -58,6 +65,9 @@ pub fn CreateGuestForm() -> Element {
                     name.set(String::new());
                     file_data.set(None);
                     file_name.set(String::new());
+                    file_value.clear();
+                    // Force re-render of file input to clear selection
+                    file_input_key.set(file_input_key() + 1);
                 }
                 Err(e) => {
                     create_result.set(Some(Err(format!("Failed to create guest: {}", e))));
@@ -102,6 +112,7 @@ pub fn CreateGuestForm() -> Element {
                 
                 // File upload
                 div {
+                    key: "{file_input_key()}",
                     label {
                         class: "block text-sm font-medium text-gray-300 mb-2",
                         "Module File (.wasm)"

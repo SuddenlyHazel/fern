@@ -1,17 +1,30 @@
-use dioxus::prelude::*;
-use crate::api::{list_guests, update_guest, GuestInfo, UpdateGuest};
+use std::time::Duration;
+
+use crate::api::{GuestInfo, UpdateGuest, list_guests, listen_list_guests, update_guest};
+use dioxus::{html::time, prelude::*};
 
 #[component]
 pub fn GuestList() -> Element {
     // Fetch the list of guests from the server
-    let guests = use_resource(move || async move {
-        list_guests().await
+    let mut guests = use_signal(Vec::new);
+
+    // Auto-refresh every second. Using SSE would be cool
+    use_future(move || async move {
+        let mut guest_stream = listen_list_guests().await?;
+         while let Some(Ok(event)) = guest_stream.recv().await {
+            guests.clear();
+            for g in event {
+                guests.push(g);
+            }
+        }
+
+        dioxus::Ok(())
     });
 
     rsx! {
         div {
             class: "bg-gray-800 border border-gray-700 rounded-lg p-6",
-            
+
             // Header
             div {
                 class: "flex items-center justify-between mb-4",
@@ -21,82 +34,29 @@ pub fn GuestList() -> Element {
                 }
                 div {
                     class: "text-sm text-gray-400",
-                    match &*guests.read() {
-                        Some(Ok(guest_list)) => rsx! {
-                            span { "{guest_list.len()} guest(s)" }
-                        },
-                        _ => rsx! { span { "Loading..." } }
-                    }
+                    span { "{guests.len()} guest(s)" }
                 }
             }
-            
+
             // Guest list content
             div {
                 class: "space-y-3",
-                match &*guests.read() {
-                    Some(Ok(guest_list)) => {
-                        if guest_list.is_empty() {
-                            rsx! {
-                                div {
-                                    class: "text-center py-8 text-gray-400",
-                                    div {
-                                        class: "text-4xl mb-2",
-                                        "🔍"
-                                    }
-                                    p { "No guests connected" }
-                                    p {
-                                        class: "text-sm mt-1",
-                                        "Guests will appear here when they connect to the server"
-                                    }
-                                }
-                            }
-                        } else {
-                            rsx! {
-                                for guest in guest_list {
-                                    GuestCard { guest: guest.clone() }
-                                }
-                            }
-                        }
-                    },
-                    Some(Err(_)) => rsx! {
+                if guests.is_empty() {
+                    div {
+                        class: "text-center py-8 text-gray-400",
                         div {
-                            class: "text-center py-8 text-red-400",
-                            div {
-                                class: "text-4xl mb-2",
-                                "⚠️"
-                            }
-                            p { "Failed to load guests" }
-                            p {
-                                class: "text-sm mt-1",
-                                "There was an error fetching the guest list"
-                            }
+                            class: "text-4xl mb-2",
+                            "🔍"
                         }
-                    },
-                    None => rsx! {
-                        div {
-                            class: "space-y-3",
-                            // Loading skeleton
-                            for _ in 0..3 {
-                                div {
-                                    class: "bg-gray-700 rounded-lg p-4 animate-pulse",
-                                    div {
-                                        class: "flex items-center space-x-3",
-                                        div {
-                                            class: "w-10 h-10 bg-gray-600 rounded-full"
-                                        }
-                                        div {
-                                            class: "flex-1 space-y-2",
-                                            div {
-                                                class: "h-4 bg-gray-600 rounded w-1/4"
-                                            }
-                                            div {
-                                                class: "h-3 bg-gray-600 rounded w-3/4"
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                        p { "No guests connected" }
+                        p {
+                            class: "text-sm mt-1",
+                            "Guests will appear here when they connect to the server"
                         }
+                    }
+                } else {
+                    for guest in &*guests.read() {
+                        GuestCard { guest: guest.clone() }
                     }
                 }
             }
@@ -118,7 +78,7 @@ fn GuestCard(guest: GuestInfo) -> Element {
             let file = files[0].clone();
             let file_name_clone = file.name();
             file_name.set(file_name_clone);
-            
+
             spawn(async move {
                 match file.read_bytes().await {
                     Ok(contents) => {
@@ -141,16 +101,16 @@ fn GuestCard(guest: GuestInfo) -> Element {
 
         let guest_name = guest_name_for_update.clone();
         let module_data = file_data().unwrap();
-        
+
         is_updating.set(true);
         update_result.set(None);
-        
+
         spawn(async move {
             let request = UpdateGuest {
                 name: guest_name,
                 module: module_data,
             };
-            
+
             match update_guest(request).await {
                 Ok(success) => {
                     update_result.set(Some(Ok(success)));
@@ -178,7 +138,7 @@ fn GuestCard(guest: GuestInfo) -> Element {
     rsx! {
         div {
             class: "bg-gray-700 border border-gray-600 rounded-lg p-4 hover:bg-gray-650 transition-colors",
-            
+
             // Main guest info
             div {
                 class: "flex items-center justify-between gap-4",
@@ -196,7 +156,11 @@ fn GuestCard(guest: GuestInfo) -> Element {
                         }
                         p {
                             class: "text-gray-400 text-sm font-mono truncate",
-                            "ID: {guest.endpoint_id}"
+                            "EndpointId: {guest.endpoint_id}"
+                        }
+                        p {
+                            class: "text-gray-400 text-sm font-mono truncate",
+                            "Module Hash: {guest.module_hash}"
                         }
                     }
                     div {
@@ -216,14 +180,14 @@ fn GuestCard(guest: GuestInfo) -> Element {
                     if show_update_form() { "Cancel" } else { "Update" }
                 }
             }
-            
+
             // Update form (shown when update button is clicked)
             if show_update_form() {
                 div {
                     class: "mt-4 pt-4 border-t border-gray-600",
                     div {
                         class: "space-y-3",
-                        
+
                         // File upload
                         div {
                             label {
@@ -244,7 +208,7 @@ fn GuestCard(guest: GuestInfo) -> Element {
                                 }
                             }
                         }
-                        
+
                         // Action buttons
                         div {
                             class: "flex space-x-2",
@@ -269,7 +233,7 @@ fn GuestCard(guest: GuestInfo) -> Element {
                                 "Cancel"
                             }
                         }
-                        
+
                         // Result display
                         if let Some(result) = update_result() {
                             div {

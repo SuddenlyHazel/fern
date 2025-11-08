@@ -3,6 +3,7 @@ use extism_convert::Json;
 use redb::{Database, ReadableDatabase, TableDefinition};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use crate::guest::GuestConfig;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct KvStoreInput {
@@ -27,10 +28,30 @@ impl GuestKvData {
         let db = Database::create(file.path()).expect("failed to create db");
         Self { db }
     }
+
+    pub fn new_with_config(config: &GuestConfig) -> Self {
+        if let Some(ref db_path) = config.db_path {
+            // Create absolute path: db_path + guest_name + "db.redb"
+            let mut full_path = db_path.clone();
+            full_path.push(&config.name);
+            full_path.push("db.redb");
+            
+            // Ensure the directory exists
+            if let Some(parent) = full_path.parent() {
+                std::fs::create_dir_all(parent).expect("failed to create database directory");
+            }
+            
+            let db = Database::create(&full_path).expect("failed to create file-based db");
+            Self { db }
+        } else {
+            // Fall back to in-memory database
+            Self::new()
+        }
+    }
 }
 
-pub fn attach_guest_kv(builder: PluginBuilder) -> PluginBuilder {
-    let user_data = UserData::new(GuestKvData::new());
+pub fn attach_guest_kv(builder: PluginBuilder, config: GuestConfig) -> PluginBuilder {
+    let user_data = UserData::new(GuestKvData::new_with_config(&config));
     builder
         .with_function("kv_store", [PTR], [PTR], user_data.clone(), kv_store)
         .with_function("kv_read", [PTR], [PTR], user_data.clone(), kv_read)

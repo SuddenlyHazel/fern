@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::time::Instant;
+use crate::guest::GuestConfig;
 
 pub struct GuestSqliteDbImproved {
     pub db: rusqlite::Connection,
@@ -35,6 +36,55 @@ impl GuestSqliteDbImproved {
         ",
         )
         .expect("failed to set SQLite pragmas");
+
+        Self {
+            db,
+            stats: QueryStats::default(),
+        }
+    }
+
+    pub fn new_with_config(config: &GuestConfig) -> Self {
+        let db = if let Some(ref db_path) = config.db_path {
+            // Create absolute path: db_path + guest_name + "db.sqlite"
+            let mut full_path = db_path.clone();
+            full_path.push(&config.name);
+            full_path.push("db.sqlite");
+            
+            // Ensure the directory exists
+            if let Some(parent) = full_path.parent() {
+                std::fs::create_dir_all(parent).expect("failed to create database directory");
+            }
+            
+            rusqlite::Connection::open(&full_path).expect("failed to create file-based SQLite db")
+        } else {
+            // Fall back to in-memory database
+            rusqlite::Connection::open_in_memory().expect("failed to create in-memory db")
+        };
+
+        // Set SQLite pragmas for better performance and safety
+        let pragma_batch = if config.db_path.is_some() {
+            // File-based database pragmas
+            "
+            PRAGMA foreign_keys = ON;
+            PRAGMA journal_mode = WAL;
+            PRAGMA synchronous = NORMAL;
+            PRAGMA temp_store = MEMORY;
+            PRAGMA cache_size = -64000;
+            PRAGMA busy_timeout = 30000;
+            "
+        } else {
+            // In-memory database pragmas
+            "
+            PRAGMA foreign_keys = ON;
+            PRAGMA journal_mode = MEMORY;
+            PRAGMA synchronous = FULL;
+            PRAGMA temp_store = MEMORY;
+            PRAGMA cache_size = -64000;
+            "
+        };
+
+        db.execute_batch(pragma_batch)
+            .expect("failed to set SQLite pragmas");
 
         Self {
             db,
@@ -301,9 +351,10 @@ pub struct QueryExplanation {
 
 pub fn attach_guest_sqlite_improved(
     builder: PluginBuilder,
+    config: GuestConfig,
     existing_user_data: Option<UserData<GuestSqliteDbImproved>>,
 ) -> (PluginBuilder, UserData<GuestSqliteDbImproved>) {
-    let user_data = existing_user_data.unwrap_or_else(|| UserData::new(GuestSqliteDbImproved::new()));
+    let user_data = existing_user_data.unwrap_or_else(|| UserData::new(GuestSqliteDbImproved::new_with_config(&config)));
     let builder = builder
         .with_function(
             "sqlite_execute_enhanced",

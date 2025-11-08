@@ -23,7 +23,7 @@ const INIT_FN: &str = "init";
 
 pub type IrohBundle = (Endpoint, RouterBuilder, Vec<EndpointId>);
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct GuestConfig {
     pub name : String,
     pub db_path : Option<PathBuf>
@@ -123,9 +123,10 @@ pub fn new_plugin(
 
     let builder = PluginBuilder::new(manifest).with_wasi(true);
 
-    let builder = guest_fns::kv::attach_guest_kv(builder);
+    let builder = guest_fns::kv::attach_guest_kv(builder, config.clone());
     let (builder, sqlite) = guest_fns::sqlite_improved::attach_guest_sqlite_improved(
         builder,
+        config.clone(),
         existing_user_data.as_ref().map(|ud| ud.sqlite.clone())
     );
     let mut builder = guest_fns::debug::attach_guest_debug(builder);

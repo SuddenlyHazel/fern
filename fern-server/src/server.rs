@@ -31,10 +31,15 @@ pub mod gossip;
 pub mod get_info;
 pub use get_info::*;
 
+// Not a command module
+pub mod server_start;
+pub use server_start::*;
+
 #[derive(Serialize, Deserialize, Default)]
 pub struct Config {
     pub server_secret : Option<SecretKey>,
-    pub db_path : Option<PathBuf>
+    pub db_path : Option<PathBuf>,
+    pub guest_db_path : Option<PathBuf>,
 }
 
 pub enum Commands {
@@ -170,7 +175,9 @@ pub async fn server_task(
 
     // Guest Instances
     let mut instance_map: InstanceMap = BTreeMap::new();
-    //
+
+    // Bring any existing guests back online
+    handle_start_start(&data, bootstrap.clone(), &mut instance_map).await?;
 
     info!("Entering server event loop");
     while let Some(cmd) = command_receiver.recv().await {

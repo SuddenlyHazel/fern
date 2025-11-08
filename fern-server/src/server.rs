@@ -1,14 +1,12 @@
-use std::{collections::BTreeMap, sync::Arc, thread, time::Duration};
+use std::{collections::BTreeMap, path::{Path, PathBuf}, sync::Arc, thread, time::Duration};
 
 use iroh::{
-    Endpoint,
-    discovery::dns::DnsDiscovery,
-    protocol::{Router, RouterBuilder},
+    Endpoint, PublicKey, SecretKey, discovery::dns::DnsDiscovery, protocol::{Router, RouterBuilder}
 };
-use log::info;
+use log::{info, warn};
+use serde::{Deserialize, Serialize};
 use tokio::{
-    sync::mpsc,
-    task::{JoinHandle, LocalSet},
+    signal::ctrl_c, sync::mpsc, task::{JoinHandle, LocalSet}
 };
 
 use crate::{
@@ -25,15 +23,25 @@ pub use update_bootstrap::*;
 pub mod update_module;
 pub use update_module::*;
 
+pub mod remove_module;
+pub use remove_module::*;
+
 pub mod gossip;
 
 pub mod get_info;
 pub use get_info::*;
 
+#[derive(Serialize, Deserialize, Default)]
+pub struct Config {
+    pub server_secret : Option<SecretKey>,
+    pub db_path : Option<PathBuf>
+}
+
 pub enum Commands {
     CreateModule(CreateModule),
     UpdateBootstrap(UpdateBootstrap),
     UpdateModule(UpdateModule),
+    RemoveModule(RemoveModule),
     GetInfo(GetInfo),
 }
 
@@ -46,6 +54,7 @@ pub struct ServerBuilder {
     receiver: CommandReceiver,
     endpoint: Endpoint,
     router_builder: RouterBuilder,
+    config : Config,
 }
 
 impl ServerBuilder {
@@ -58,7 +67,7 @@ impl ServerBuilder {
             let local_set = LocalSet::new();
 
             local_set.block_on(&rt, async move {
-                let task = Server::start(self.endpoint, self.router_builder, self.receiver);
+                let _task = Server::start(self.endpoint, self.router_builder, self.receiver, self.config);
                 loop {
                     tokio::time::sleep(Duration::from_secs(1)).await;
                 }
@@ -67,10 +76,20 @@ impl ServerBuilder {
 
         Server {
             sender: self.sender,
-            //task
         }
     }
+
+    pub fn with_secret(mut self, node_secret : SecretKey) -> Self {
+        self.config.server_secret = Some(node_secret);
+        self
+    }
+
+    pub fn with_db_path(mut self, db_path : &Path) -> Self {
+        self.config.db_path = Some(db_path.into());
+        self
+    }
 }
+
 #[derive(Clone)]
 pub struct Server {
     sender: CommandSender,
@@ -88,12 +107,14 @@ impl Server {
 
         let router_builder = Router::builder(endpoint.clone());
 
+        let config = Config::default();
         let (sender, receiver) = mpsc::channel(100);
         ServerBuilder {
             sender,
             receiver,
             endpoint,
             router_builder,
+            config,
         }
     }
 
@@ -101,21 +122,24 @@ impl Server {
         endpoint: Endpoint,
         router_builder: RouterBuilder,
         receiver: CommandReceiver,
+        config: Config,
     ) -> Arc<JoinHandle<anyhow::Result<()>>> {
         Arc::new(tokio::task::spawn_local(server_task(
             endpoint,
             router_builder,
             receiver,
+            config,
         )))
     }
 
-    pub fn new(endpoint: Endpoint, router_builder: RouterBuilder) -> Self {
+    pub fn new(endpoint: Endpoint, router_builder: RouterBuilder, config: Config) -> Self {
         let (sender, rx) = mpsc::channel(100);
 
         let task = Arc::new(tokio::task::spawn_local(server_task(
             endpoint,
             router_builder,
             rx,
+            config,
         )));
 
         Self { sender }
@@ -126,9 +150,18 @@ pub async fn server_task(
     endpoint: Endpoint,
     router_builder: RouterBuilder,
     mut command_receiver: CommandReceiver,
+    config : Config,
 ) -> anyhow::Result<()> {
+    let Config { db_path, .. } = config;
     info!("Starting Fern 🌿 Server");
-    let data = Data::new_memory();
+
+    let data = if let Some(db_path) = db_path {
+        Data::new_path(&db_path)
+    } else {
+        warn!("Database path was not configured using in memory DB. All data will be lost!");
+        Data::new_memory()
+    };
+
     let (router_builder, _gossip) = setup_gossip(router_builder, endpoint.clone());
     let _router = router_builder.spawn();
 
@@ -155,6 +188,10 @@ pub async fn server_task(
                 info!("Processing UpdateModule Command");
                 handle_update_module(&data, update_module, &mut instance_map, bootstrap.clone())
                     .await
+            }
+            Commands::RemoveModule(remove_module) => {
+                info!("Processing RemoveModule Command");
+                handle_remove_module(&data, remove_module, &mut instance_map).await
             }
             Commands::GetInfo(get_info) => {
                 info!("Processing GetInfo Command");

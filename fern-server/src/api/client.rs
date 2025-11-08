@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use anyhow::{anyhow, Result};
 use iroh::EndpointId;
 
-use crate::server::{CreateResponse, GuestInfo, UpdateResponse};
+use crate::server::{CreateResponse, GuestInfo, UpdateResponse, RemoveResponse};
 
 /// HTTP client for interacting with the Fern API server
 #[derive(Debug, Clone)]
@@ -164,13 +164,40 @@ impl FernApiClient {
         Self::handle_response(response).await
     }
 
+    /// Delete an existing guest module
+    ///
+    /// Makes a DELETE request to `/api/guest/{name}` to remove an existing guest
+    /// and shut down its instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `guest_name` - The name of the guest to remove
+    ///
+    /// # Returns
+    ///
+    /// A `RemoveResponse` containing success status and a descriptive message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails, the guest doesn't exist,
+    /// or the response cannot be parsed.
+    pub async fn remove_guest(&self, guest_name: String) -> Result<RemoveResponse> {
+        let response = self.client
+            .delete(&format!("{}/api/guest/{}", self.base_url, guest_name))
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to send request: {}", e))?;
+
+        Self::handle_response(response).await
+    }
+
     /// Check if the API server is reachable
-    /// 
+    ///
     /// Makes a GET request to `/api/guest` to verify connectivity.
     /// This is a simple health check that doesn't require any specific data.
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// `true` if the server responds successfully, `false` otherwise.
     pub async fn health_check(&self) -> bool {
         match self.list_guests().await {

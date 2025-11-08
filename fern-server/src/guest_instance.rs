@@ -14,10 +14,14 @@ use tokio::{
 pub mod update_module;
 pub use update_module::*;
 
+pub mod shutdown_module;
+pub use shutdown_module::*;
+
 use crate::data::GuestRow;
 
 pub enum GuestCommand {
     UpdateModule(update_module::UpdateModule),
+    ShutdownModule(shutdown_module::ShutdownModule),
 }
 
 pub type CommandSender = mpsc::Sender<GuestCommand>;
@@ -73,6 +77,15 @@ impl GuestInstance {
     pub fn node_id(&self) -> EndpointId {
         self.node_id.clone()
     }
+
+    /// Shutdown the guest instance gracefully
+    pub async fn shutdown(&self) -> anyhow::Result<shutdown_module::ShutdownModuleResponse> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let cmd = shutdown_module::ShutdownModule { reply: tx };
+
+        self.sender.send(GuestCommand::ShutdownModule(cmd)).await?;
+        Ok(rx.await?)
+    }
 }
 
 fn guest_instance_thread(guest: Guest, receiver: CommandReceiver) -> anyhow::Result<()> {
@@ -101,7 +114,10 @@ async fn guest_instance_task(
 
             // Handle incoming commands
             Some(cmd) = receiver.recv() => {
-                handle_command(cmd, &mut guest).await;
+                if handle_command(cmd, &mut guest).await {
+                    // If handle_command returns true, it means shutdown was requested
+                    break;
+                }
             }
 
             // If the receiver is closed, exit the loop
@@ -119,12 +135,19 @@ async fn tick_guest(guest: &mut Guest) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn handle_command(cmd: GuestCommand, guest: &mut Guest) {
+async fn handle_command(cmd: GuestCommand, guest: &mut Guest) -> bool {
     match cmd {
         GuestCommand::UpdateModule(update_cmd) => {
             if let Err(e) = update_module::handle_update_module(update_cmd, guest).await {
                 warn!("Failed to handle UpdateModule command: {}", e);
             }
+            false // Continue running
+        }
+        GuestCommand::ShutdownModule(shutdown_cmd) => {
+            if let Err(e) = shutdown_module::handle_shutdown_module(shutdown_cmd, guest).await {
+                warn!("Failed to handle ShutdownModule command: {}", e);
+            }
+            true // Signal to exit the loop after shutdown
         }
     }
 }

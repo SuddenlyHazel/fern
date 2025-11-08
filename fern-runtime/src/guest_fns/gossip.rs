@@ -1,4 +1,5 @@
-use extism::{FromBytes, PTR, PluginBuilder, ToBytes, UserData, host_fn};
+use anyhow::anyhow;
+use extism::{CurrentPlugin, FromBytes, Function, PTR, PluginBuilder, ToBytes, UserData, Val, ValType, host_fn, sdk::ExtismFunction};
 use extism_convert::Json;
 use iroh::{Endpoint, EndpointId, protocol::RouterBuilder};
 use iroh_gossip::{ALPN, Gossip};
@@ -19,7 +20,8 @@ type InboundRecvChannel = tokio::sync::mpsc::Receiver<InboundGossipMsg>;
 pub struct GuestGossip {
     gossip: Gossip,
     global_handle: JoinHandle<anyhow::Result<()>>,
-    // Transmits messages to the iroh gossip layer to be broadcast
+    // Transmits messages to the iroh gossip layer to be broadcast 
+    // on the global gossip channel
     outbound_tx: OutboundSendChannel,
     // Receives messages from the iroh gossip layer to be passed to guest
     pub inbound_rx: InboundRecvChannel,
@@ -28,12 +30,14 @@ pub struct GuestGossip {
 #[derive(Debug, Serialize, Deserialize, ToBytes)]
 #[encoding(Json)]
 pub struct InboundGossipMsg {
+    pub topic: String,
     pub content: Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromBytes)]
 #[encoding(Json)]
 pub struct OutboundGossipMsg {
+    pub topic: String,
     pub content: Value,
 }
 
@@ -43,6 +47,8 @@ pub fn attach_guest_gossip(
     endpoint: Endpoint,
     bootstrap: Vec<EndpointId>,
 ) -> (PluginBuilder, RouterBuilder, UserData<GuestGossip>) {
+
+    // Global Gossip
     let gossip = Gossip::builder().spawn(endpoint.clone());
 
     router = router.accept(ALPN, gossip.clone());
@@ -66,6 +72,10 @@ pub fn attach_guest_gossip(
 
     let plugin = plugin.with_function("broadcast_msg", [PTR], [PTR], gossip.clone(), broadcast_msg);
 
+    // Plugin Specific Gossip
+
+    let plugin = plugin.with_function("subscribe_topic", [PTR, ValType::FuncRef], [PTR], gossip.clone(), execute_subscribe_gossip_topic);
+    
     (plugin, router, gossip)
 }
 
@@ -90,8 +100,12 @@ async fn plugin_global_gossip_task(
         let mut recv_channel = outbound_rx;
         let global_tx = global_tx;
 
-        while let Some(msg) = recv_channel.recv().await {
-            let bytes = serde_json::to_vec(&msg).unwrap();
+        while let Some(OutboundGossipMsg { topic, content }) = recv_channel.recv().await {
+            let inbound_msg = InboundGossipMsg {
+                topic,
+                content,
+            };
+            let bytes = serde_json::to_vec(&inbound_msg).unwrap();
             let res = global_tx.broadcast(bytes.into()).await;
             info!("guest gossip broadcast res {res:?}")
         }
@@ -124,5 +138,20 @@ fn execute_broadcast_msg(
     let user_data = user_data.get()?;
     let locked = user_data.lock().unwrap();
     locked.outbound_tx.try_send(msg)?;
+    Ok(())
+}
+
+// host_fn!(subscribe_gossip_topic(user_data: GuestGossip; topic_name: String, callback : String) -> () {
+//     execute_subscribe_gossip_topic(user_data, topic_name, callback)
+// });
+// &mut CurrentPlugin, &[Val], &mut [Val], UserData<T>
+fn execute_subscribe_gossip_topic(plugin: &mut CurrentPlugin, args: &[Val], returns : &mut [Val], gossip: UserData<GuestGossip>) -> Result<(), extism::Error> {
+    if args.len() != 2 {
+        return Err(anyhow!("Invalid parameters"));
+    }
+
+    let topic_name = args[0];
+    let callback_ref = args[1];
+
     Ok(())
 }

@@ -29,3 +29,4 @@ chrono = "0.4.42"
 axum = "0.8.6"
 reqwest = { version = "0.12", features = ["json"] }
 iocraft = "0.7.14"
+toml = "0.9.8"

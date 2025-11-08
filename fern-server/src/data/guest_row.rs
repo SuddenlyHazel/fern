@@ -87,6 +87,22 @@ impl GuestRow {
         Ok(rows_affected == 1)
     }
 
+    /// Remove a guest by ID
+    /// Returns true if a row was deleted, false if no row was found
+    pub fn remove_by_id(data: &Data, id: i64) -> rusqlite::Result<bool> {
+        let conn = &data.conn;
+        let rows_affected = conn.execute("DELETE FROM guests WHERE id = ?1", [id])?;
+        Ok(rows_affected == 1)
+    }
+
+    /// Remove a guest by name
+    /// Returns true if a row was deleted, false if no row was found
+    pub fn remove_by_name(data: &Data, name: &str) -> rusqlite::Result<bool> {
+        let conn = &data.conn;
+        let rows_affected = conn.execute("DELETE FROM guests WHERE name = ?1", [name])?;
+        Ok(rows_affected == 1)
+    }
+
     pub fn all_with_pagination(
         data: &Data,
         limit: i64,
@@ -170,5 +186,30 @@ mod tests {
         let last_one =
             GuestRow::all_with_pagination(&data, 2, 2).expect("failed to get second page");
         assert_eq!(last_one.len(), 1);
+
+        // Test remove by name
+        let removed = GuestRow::remove_by_name(&data, "guest2").expect("failed to remove guest2");
+        assert!(removed, "should have removed guest2");
+
+        // Verify guest2 is gone
+        let missing_guest = GuestRow::by_name(&data, "guest2").expect("failed to query for guest2");
+        assert!(missing_guest.is_none(), "guest2 should be deleted");
+
+        // Test remove by ID
+        let guest3_id = GuestRow::by_name(&data, "guest3")
+            .expect("failed to query guest3")
+            .expect("guest3 should exist")
+            .id;
+        
+        let removed = GuestRow::remove_by_id(&data, guest3_id).expect("failed to remove guest3");
+        assert!(removed, "should have removed guest3");
+
+        // Verify guest3 is gone
+        let missing_guest = GuestRow::by_id(&data, guest3_id).expect("failed to query for guest3");
+        assert!(missing_guest.is_none(), "guest3 should be deleted");
+
+        // Test removing non-existent guest
+        let not_removed = GuestRow::remove_by_name(&data, "nonexistent").expect("failed to attempt remove");
+        assert!(!not_removed, "should return false for non-existent guest");
     }
 }

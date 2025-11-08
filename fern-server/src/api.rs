@@ -1,15 +1,15 @@
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
     Server,
-    server::{CreateResponse, GuestInfo, UpdateResponse},
+    server::{CreateResponse, GuestInfo, UpdateResponse, RemoveResponse},
 };
 
 pub mod client;
@@ -21,6 +21,8 @@ pub async fn api_server(server: Server) {
             "/api/guest",
             get(list_guests).post(create_module).put(update_module),
         )
+        // {name} is how we define path params not :name
+        .route("/api/guest/{name}", delete(remove_module))
         .with_state(server);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
@@ -55,6 +57,13 @@ async fn update_module(
 
 async fn list_guests(State(server): State<Server>) -> Result<Json<Vec<GuestInfo>>, AppError> {
     Ok(Json(server.guest_info().await?))
+}
+
+async fn remove_module(
+    State(server): State<Server>,
+    Path(name): Path<String>,
+) -> Result<Json<RemoveResponse>, AppError> {
+    Ok(Json(server.remove_module(name).await?))
 }
 
 // Make our own error that wraps `anyhow::Error`.

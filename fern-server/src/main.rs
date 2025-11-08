@@ -4,8 +4,9 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use log::{error, info};
 
-use fern_server::{FernApiClient, cli::{GuestsTable, GuestsTableProps}, generate_secret_key, start_server};
+use fern_server::{FernApiClient, cli::{GuestsTable, GuestsTableProps}, generate_secret_key, server::Config, start_server};
 use iocraft::prelude::*;
+use tokio::{fs::File, io::AsyncReadExt};
 
 /// Fern Server - A weird distributed WASM runtime 🌿
 #[derive(Parser)]
@@ -21,9 +22,9 @@ pub struct Cli {
 pub enum Commands {
     /// Start the Fern server
     Start {
-        /// Path to identity secret will generate random identity if empty
+        /// Path to fern config file
         #[arg(long)]
-        secret: Option<PathBuf>,
+        config: Option<PathBuf>,
     },
     /// Generate a new identity secret key for the Fern server
     GenerateSecret {
@@ -37,13 +38,24 @@ pub enum Commands {
     HealthCheck {},
     ListGuests {},
     CreateModule {
-        name : String,
+        name: String,
         module_path: PathBuf
+    },
+    RemoveModule {
+        name: String,
     }
 }
 
 async fn handle_start_command(secret_path: Option<PathBuf>) -> Result<()> {
-    start_server(secret_path).await
+    let config = if let Some(path) = secret_path {
+        let mut config_file = File::open(path).await?;
+        let mut config = String::new();
+        config_file.read_to_string(&mut config).await?;
+        toml::from_str(&config)?
+    } else {
+        Config::default()
+    };
+    start_server(config).await
 }
 
 async fn handle_generate_secret_command(path: PathBuf) -> Result<()> {
@@ -134,6 +146,55 @@ async fn handle_create_module_command(name: String, module_path: PathBuf) -> Res
     Ok(())
 }
 
+async fn handle_remove_module_command(name: String) -> Result<()> {
+    let client = FernApiClient::localhost();
+    
+    match client.remove_guest(name.clone()).await {
+        Ok(response) => {
+            if response.success {
+                element! {
+                    View(
+                        border_style: BorderStyle::Round,
+                        border_color: Color::Green,
+                        padding: 1,
+                    ) {
+                        Text(content: format!("✅ {}", response.message), weight: Weight::Bold)
+                    }
+                }
+                .print();
+            } else {
+                element! {
+                    View(
+                        border_style: BorderStyle::Round,
+                        border_color: Color::Red,
+                        padding: 1,
+                    ) {
+                        Text(content: format!("❌ {}", response.message), weight: Weight::Bold)
+                    }
+                }
+                .print();
+                return Err(anyhow::anyhow!("Failed to remove guest: {}", response.message));
+            }
+        }
+        Err(e) => {
+            element! {
+                View(
+                    border_style: BorderStyle::Round,
+                    border_color: Color::Red,
+                    padding: 1,
+                ) {
+                    Text(content: format!("❌ Failed to remove guest '{}'", name), weight: Weight::Bold)
+                    Text(content: format!("Error: {}", e))
+                }
+            }
+            .print();
+            return Err(e);
+        }
+    }
+    
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() {
     env_logger::builder()
@@ -143,11 +204,12 @@ async fn main() {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Commands::Start { secret } => handle_start_command(secret).await,
+        Commands::Start { config } => handle_start_command(config).await,
         Commands::GenerateSecret { path } => handle_generate_secret_command(path).await,
         Commands::HealthCheck {} => handle_health_check_command().await,
         Commands::ListGuests {} => handle_list_guest_command().await,
         Commands::CreateModule { name, module_path } => handle_create_module_command(name, module_path).await,
+        Commands::RemoveModule { name } => handle_remove_module_command(name).await,
     };
 
     if let Err(e) = result {

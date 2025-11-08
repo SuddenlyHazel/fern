@@ -23,15 +23,15 @@ pub use guest_instance::GuestInstance;
 pub use server::{Server, GuestInfo};
 pub use api::FernApiClient;
 
-use crate::api::api_server;
+use crate::{api::api_server, server::Config};
 
 
 /// Start a Fern server with the given secret key
-pub async fn start_server(secret_path: Option<PathBuf>) -> Result<()> {
-    let secret = if let Some(secret_path) = secret_path {
-        load_secret_key(secret_path).await?
+pub async fn start_server(config: Config) -> Result<()> {
+    let secret = if let Some(secret) = &config.server_secret {
+        secret.clone()
     } else {
-        log::warn!("Key path not provided. Generating a random secret key");
+        log::warn!("Secret not provided. Generating a random secret key");
         SecretKey::generate(&mut rand::rng())
     };
 
@@ -50,7 +50,7 @@ pub async fn start_server(secret_path: Option<PathBuf>) -> Result<()> {
 
     local
         .run_until(async move {
-            let server = Server::new(endpoint, router_builder);
+            let server = Server::new(endpoint, router_builder, config);
 
             tokio::spawn(api_server(server));
             // let hello_world_module = include_bytes!("../../sample-guests/hello-world.wasm");

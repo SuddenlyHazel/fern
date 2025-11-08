@@ -177,6 +177,7 @@ async fn test_rust_guest_gossip() {
     let r = guest_one.plugin.call::<InboundGossipMsg, ()>(
         MESSAGE_FN,
         InboundGossipMsg {
+            topic: "global".into(),
             content: serde_json::json!({
                 "hello" : "world",
             }),

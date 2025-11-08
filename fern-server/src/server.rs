@@ -184,7 +184,7 @@ pub async fn server_task(
         let res = match cmd {
             Commands::CreateModule(create_module) => {
                 info!("Processing CreateModule Command");
-                handle_create_module(&data, create_module, bootstrap.clone(), &mut instance_map)
+                handle_create_module(&data, guest_db_path.clone(), create_module, bootstrap.clone(), &mut instance_map)
                     .await
             }
             Commands::UpdateBootstrap(update_bootstrap) => {
@@ -193,7 +193,7 @@ pub async fn server_task(
             }
             Commands::UpdateModule(update_module) => {
                 info!("Processing UpdateModule Command");
-                handle_update_module(&data, update_module, &mut instance_map, bootstrap.clone())
+                handle_update_module(&data, update_module, &mut instance_map, bootstrap.clone(), guest_db_path.clone())
                     .await
             }
             Commands::RemoveModule(remove_module) => {

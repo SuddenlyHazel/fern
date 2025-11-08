@@ -48,6 +48,7 @@ pub(crate) async fn handle_update_module(
     cmd: UpdateModule,
     instance_map: &mut InstanceMap,
     bootstrap: Vec<EndpointId>,
+    guest_db_path: Option<std::path::PathBuf>,
 ) -> anyhow::Result<()> {
     let mut entry = match instance_map.entry(cmd.name.clone()) {
         Entry::Vacant(_) => {
@@ -77,7 +78,7 @@ pub(crate) async fn handle_update_module(
             success: instance_update_success,
             error_message,
         } = guest_instance
-            .update_module(cmd.module, module_hash.clone(), bootstrap)
+            .update_module(cmd.module, module_hash.clone(), cmd.name.clone(), guest_db_path, bootstrap)
             .await?;
 
         if !instance_update_success {

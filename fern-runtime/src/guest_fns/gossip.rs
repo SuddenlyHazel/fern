@@ -71,10 +71,6 @@ pub fn attach_guest_gossip(
     });
 
     let plugin = plugin.with_function("broadcast_msg", [PTR], [PTR], gossip.clone(), broadcast_msg);
-
-    // Plugin Specific Gossip
-
-    let plugin = plugin.with_function("subscribe_topic", [PTR, ValType::FuncRef], [PTR], gossip.clone(), execute_subscribe_gossip_topic);
     
     (plugin, router, gossip)
 }
@@ -138,20 +134,5 @@ fn execute_broadcast_msg(
     let user_data = user_data.get()?;
     let locked = user_data.lock().unwrap();
     locked.outbound_tx.try_send(msg)?;
-    Ok(())
-}
-
-// host_fn!(subscribe_gossip_topic(user_data: GuestGossip; topic_name: String, callback : String) -> () {
-//     execute_subscribe_gossip_topic(user_data, topic_name, callback)
-// });
-// &mut CurrentPlugin, &[Val], &mut [Val], UserData<T>
-fn execute_subscribe_gossip_topic(plugin: &mut CurrentPlugin, args: &[Val], returns : &mut [Val], gossip: UserData<GuestGossip>) -> Result<(), extism::Error> {
-    if args.len() != 2 {
-        return Err(anyhow!("Invalid parameters"));
-    }
-
-    let topic_name = args[0];
-    let callback_ref = args[1];
-
     Ok(())
 }

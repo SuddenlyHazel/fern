@@ -494,7 +494,11 @@ components:
       description: Message to be broadcast to the gossip network
       required:
         - content
+        - topic
       properties:
+        topic:
+            type: string
+            description: Topic to broadcast the message on
         content:
           type: object
           description: The JSON content to broadcast to peers
@@ -502,7 +506,11 @@ components:
       description: Message received from the gossip network
       required:
         - content
+        - topic
       properties:
+        topic:
+          type: string
+          description: Topic the message was broadcast on
         content:
           type: object
           description: The JSON content received from a peer

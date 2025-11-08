@@ -17,7 +17,6 @@ pub use update_module::*;
 pub mod shutdown_module;
 pub use shutdown_module::*;
 
-use crate::data::GuestRow;
 
 pub enum GuestCommand {
     UpdateModule(update_module::UpdateModule),
@@ -56,12 +55,16 @@ impl GuestInstance {
         &mut self,
         module: Vec<u8>,
         module_hash: String,
+        guest_name: String,
+        guest_db_path: Option<std::path::PathBuf>,
         bootstrap: Vec<EndpointId>,
     ) -> anyhow::Result<update_module::UpdateModuleResponse> {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cmd = update_module::UpdateModule {
             module,
             module_hash: module_hash.clone(),
+            guest_name,
+            guest_db_path,
             bootstrap,
             reply: tx,
         };

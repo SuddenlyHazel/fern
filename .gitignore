@@ -251,3 +251,4 @@ config.local.*
 
 *.fern
 *.key
+sample

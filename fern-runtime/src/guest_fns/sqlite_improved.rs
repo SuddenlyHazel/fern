@@ -44,9 +44,9 @@ impl GuestSqliteDbImproved {
     }
 
     pub fn new_with_config(config: &GuestConfig) -> Self {
-        let db = if let Some(ref db_path) = config.db_path {
-            // Create absolute path: db_path + guest_name + "db.sqlite"
-            let mut full_path = db_path.clone();
+        let db = if let Some(ref host_data_path) = config.host_data_path {
+            // Create absolute path: host_data_path + guest_name + "db.sqlite"
+            let mut full_path = host_data_path.clone();
             full_path.push(&config.name);
             full_path.push("db.sqlite");
             
@@ -62,7 +62,7 @@ impl GuestSqliteDbImproved {
         };
 
         // Set SQLite pragmas for better performance and safety
-        let pragma_batch = if config.db_path.is_some() {
+        let pragma_batch = if config.host_data_path.is_some() {
             // File-based database pragmas
             "
             PRAGMA foreign_keys = ON;

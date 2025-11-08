@@ -1,9 +1,9 @@
+use crate::guest::GuestConfig;
 use extism::{PTR, PluginBuilder, UserData, host_fn};
 use extism_convert::Json;
 use redb::{Database, ReadableDatabase, TableDefinition};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::guest::GuestConfig;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct KvStoreInput {
@@ -30,17 +30,17 @@ impl GuestKvData {
     }
 
     pub fn new_with_config(config: &GuestConfig) -> Self {
-        if let Some(ref db_path) = config.db_path {
-            // Create absolute path: db_path + guest_name + "db.redb"
-            let mut full_path = db_path.clone();
+        if let Some(ref host_data_path) = config.host_data_path {
+            // Create absolute path: host_data_path + guest_name + "db.redb"
+            let mut full_path = host_data_path.clone();
             full_path.push(&config.name);
             full_path.push("db.redb");
-            
+
             // Ensure the directory exists
             if let Some(parent) = full_path.parent() {
                 std::fs::create_dir_all(parent).expect("failed to create database directory");
             }
-            
+
             let db = Database::create(&full_path).expect("failed to create file-based db");
             Self { db }
         } else {

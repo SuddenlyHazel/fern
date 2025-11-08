@@ -56,7 +56,7 @@ impl GuestInstance {
         module: Vec<u8>,
         module_hash: String,
         guest_name: String,
-        guest_db_path: Option<std::path::PathBuf>,
+        host_data_path: Option<std::path::PathBuf>,
         bootstrap: Vec<EndpointId>,
     ) -> anyhow::Result<update_module::UpdateModuleResponse> {
         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -64,7 +64,7 @@ impl GuestInstance {
             module,
             module_hash: module_hash.clone(),
             guest_name,
-            guest_db_path,
+            host_data_path,
             bootstrap,
             reply: tx,
         };

@@ -44,7 +44,7 @@ pub struct CreateResponse {
 
 pub(crate) async fn handle_create_module(
     data: &Data,
-    guest_db_path: Option<PathBuf>,
+    host_data_path: Option<PathBuf>,
     cmd: CreateModule,
     bootstrap: Vec<EndpointId>,
     instance_map: &mut InstanceMap,
@@ -61,7 +61,7 @@ pub(crate) async fn handle_create_module(
 
     let guest_config = GuestConfig {
         name: guest_row.name.clone(),
-        db_path: guest_db_path,
+        host_data_path: host_data_path,
     };
     let mut guest = new_guest(guest_config, guest_row.module, (endpoint, router_builder, bootstrap))?;
 

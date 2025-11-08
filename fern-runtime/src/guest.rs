@@ -10,7 +10,8 @@ use iroh::{
 use crate::{
     guest_fns::{
         self,
-        gossip::{GuestGossip, InboundGossipMsg}, sqlite_improved::GuestSqliteDbImproved,
+        gossip::{GuestGossip, InboundGossipMsg},
+        sqlite_improved::GuestSqliteDbImproved,
     },
     iroh_helpers::iroh_bundle,
 };
@@ -25,8 +26,8 @@ pub type IrohBundle = (Endpoint, RouterBuilder, Vec<EndpointId>);
 
 #[derive(Default, Clone)]
 pub struct GuestConfig {
-    pub name : String,
-    pub db_path : Option<PathBuf>
+    pub name: String,
+    pub host_data_path: Option<PathBuf>,
 }
 
 pub struct Guest {
@@ -80,7 +81,11 @@ pub struct NetworkUserData {
     pub gossip: UserData<GuestGossip>,
 }
 
-pub fn new_guest(config: GuestConfig, guest_module: impl Into<Wasm>, iroh: IrohBundle) -> anyhow::Result<Guest> {
+pub fn new_guest(
+    config: GuestConfig,
+    guest_module: impl Into<Wasm>,
+    iroh: IrohBundle,
+) -> anyhow::Result<Guest> {
     new_guest_with_userdata(config, guest_module, iroh, None)
 }
 
@@ -88,7 +93,7 @@ pub fn new_guest_with_userdata(
     config: GuestConfig,
     guest_module: impl Into<Wasm>,
     iroh: IrohBundle,
-    existing_user_data: Option<PluginUserData>
+    existing_user_data: Option<PluginUserData>,
 ) -> anyhow::Result<Guest> {
     let (plugin, plugin_userdata, Some((endpoint, router, bootstrap)), Some(network_data)) =
         new_plugin(config, guest_module, Some(iroh), existing_user_data)?
@@ -110,15 +115,20 @@ pub fn new_guest_with_userdata(
 
 #[derive(Clone)]
 pub struct PluginUserData {
-    pub sqlite : UserData<GuestSqliteDbImproved>
+    pub sqlite: UserData<GuestSqliteDbImproved>,
 }
 
 pub fn new_plugin(
-    config : GuestConfig,
+    config: GuestConfig,
     guest_module: impl Into<Wasm>,
     mut iroh: Option<IrohBundle>,
     existing_user_data: Option<PluginUserData>,
-) -> anyhow::Result<(Plugin, PluginUserData, Option<IrohBundle>, Option<NetworkUserData>)> {
+) -> anyhow::Result<(
+    Plugin,
+    PluginUserData,
+    Option<IrohBundle>,
+    Option<NetworkUserData>,
+)> {
     let manifest = Manifest::new([guest_module]).with_config_key("id", uuid::Uuid::new_v4());
 
     let builder = PluginBuilder::new(manifest).with_wasi(true);
@@ -127,7 +137,7 @@ pub fn new_plugin(
     let (builder, sqlite) = guest_fns::sqlite_improved::attach_guest_sqlite_improved(
         builder,
         config.clone(),
-        existing_user_data.as_ref().map(|ud| ud.sqlite.clone())
+        existing_user_data.as_ref().map(|ud| ud.sqlite.clone()),
     );
     let mut builder = guest_fns::debug::attach_guest_debug(builder);
 
@@ -150,9 +160,7 @@ pub fn new_plugin(
     }
     let plugin = builder.build()?;
 
-    let ud = PluginUserData {
-        sqlite,
-    };
+    let ud = PluginUserData { sqlite };
     Ok((plugin, ud, iroh, network_user_data))
 }
 
@@ -166,7 +174,8 @@ fn test_rust_guest() {
 
     let test_module =
         include_bytes!("../../test_guest/test-rs-revised/target/wasm32-wasip1/release/plugin.wasm");
-    let (mut guest, _, _, _) = new_plugin(GuestConfig::default(), test_module.to_vec(), None, None).expect("failed to create guest");
+    let (mut guest, _, _, _) = new_plugin(GuestConfig::default(), test_module.to_vec(), None, None)
+        .expect("failed to create guest");
     let r = guest.call::<&str, serde_json::Value>(SQL_TEST, "hello");
     info!("{r:#?}");
 }
@@ -210,7 +219,7 @@ async fn test_guest(bootstrap: Vec<EndpointId>) -> anyhow::Result<Guest> {
 
     let config = GuestConfig {
         name: "test".into(),
-        db_path: None,
+        host_data_path: None,
     };
 
     let guest = new_guest(config, test_module.to_vec(), (endpoint, router, bootstrap))

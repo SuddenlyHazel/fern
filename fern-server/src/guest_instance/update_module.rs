@@ -12,7 +12,7 @@ pub struct UpdateModule {
     pub module: Vec<u8>,
     pub module_hash: String,
     pub guest_name: String,
-    pub guest_db_path: Option<PathBuf>,
+    pub host_data_path: Option<PathBuf>,
     pub reply: oneshot::Sender<UpdateModuleResponse>,
     pub bootstrap: Vec<EndpointId>,
 }
@@ -26,7 +26,7 @@ pub(crate) async fn handle_update_module(
     cmd: UpdateModule,
     guest: &mut fern_runtime::guest::Guest,
 ) -> anyhow::Result<()> {
-    let response = match perform_module_update(cmd.module, cmd.guest_name, cmd.guest_db_path, cmd.bootstrap, guest).await {
+    let response = match perform_module_update(cmd.module, cmd.guest_name, cmd.host_data_path, cmd.bootstrap, guest).await {
         Ok(()) => UpdateModuleResponse {
             success: true,
             error_message: None,
@@ -51,7 +51,7 @@ pub(crate) async fn handle_update_module(
 async fn perform_module_update(
     module: Vec<u8>,
     guest_name: String,
-    guest_db_path: Option<PathBuf>,
+    host_data_path: Option<PathBuf>,
     bootstrap: Vec<EndpointId>,
     guest: &mut Guest,
 ) -> anyhow::Result<()> {
@@ -70,7 +70,7 @@ async fn perform_module_update(
 
     let guest_config = GuestConfig {
         name: guest_name,
-        db_path: guest_db_path,
+        host_data_path: host_data_path,
     };
     let mut new_guest = new_guest_with_userdata(guest_config, module, (endpoint, router_builder, bootstrap), Some(guest.plugin_userdata.clone()))?;
 

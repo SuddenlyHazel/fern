@@ -12,18 +12,18 @@ pub fn attach_guest_debug(builder: PluginBuilder) -> PluginBuilder {
 
 host_fn!(guest_info(_user_data: (); message: String) -> () {
     let thread_id = thread::current().id();
-    info!(target: "guest_log", "thread_id={:?}, {}", thread_id, message);
+    info!(target: "fern::guest::logger", "thread_id={:?}, {}", thread_id, message);
     Ok(())
 });
 
 host_fn!(guest_warn(_user_data: (); message: String) -> () {
     let thread_id = thread::current().id();
-    warn!(target: "guest_log", "thread_id={:?}, {}", thread_id, message);
+    warn!(target: "fern::guest::logger", "thread_id={:?}, {}", thread_id, message);
     Ok(())
 });
 
 host_fn!(guest_error(_user_data: (); message: String) -> () {
     let thread_id = thread::current().id();
-    error!(target: "guest_log", "thread_id={:?}, {}", thread_id, message);
+    error!(target: "fern::guest::logger", "thread_id={:?}, {}", thread_id, message);
     Ok(())
 });

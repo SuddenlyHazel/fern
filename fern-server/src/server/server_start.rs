@@ -31,7 +31,7 @@ pub async fn handle_start_start(
 
             let guest_config = GuestConfig {
                 name: guest_name.clone(),
-                db_path: db_path.clone(),
+                host_data_path: db_path.clone(),
             };
 
             if let Ok(instance) = start_guest(guest_row, bootstrap.clone(), guest_config).await {

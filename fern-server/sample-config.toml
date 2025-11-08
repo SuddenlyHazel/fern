@@ -1,1 +1,2 @@
-db_path = "./sample-fern.sqlite"
+db_path = "./sample/sample-fern.sqlite"
+host_data_path = "./sample"

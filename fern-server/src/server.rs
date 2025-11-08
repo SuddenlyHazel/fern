@@ -39,7 +39,7 @@ pub use server_start::*;
 pub struct Config {
     pub server_secret : Option<SecretKey>,
     pub db_path : Option<PathBuf>,
-    pub guest_db_path : Option<PathBuf>,
+    pub host_data_path : Option<PathBuf>,
 }
 
 pub enum Commands {
@@ -157,7 +157,7 @@ pub async fn server_task(
     mut command_receiver: CommandReceiver,
     config : Config,
 ) -> anyhow::Result<()> {
-    let Config { db_path, guest_db_path,.. } = config;
+    let Config { db_path, host_data_path,.. } = config;
     info!("Starting Fern 🌿 Server");
 
     let data = if let Some(db_path) = db_path {
@@ -177,14 +177,14 @@ pub async fn server_task(
     let mut instance_map: InstanceMap = BTreeMap::new();
 
     // Bring any existing guests back online
-    handle_start_start(&data, bootstrap.clone(), &mut instance_map, guest_db_path.clone()).await?;
+    handle_start_start(&data, bootstrap.clone(), &mut instance_map, host_data_path.clone()).await?;
 
     info!("Entering server event loop");
     while let Some(cmd) = command_receiver.recv().await {
         let res = match cmd {
             Commands::CreateModule(create_module) => {
                 info!("Processing CreateModule Command");
-                handle_create_module(&data, guest_db_path.clone(), create_module, bootstrap.clone(), &mut instance_map)
+                handle_create_module(&data, host_data_path.clone(), create_module, bootstrap.clone(), &mut instance_map)
                     .await
             }
             Commands::UpdateBootstrap(update_bootstrap) => {
@@ -193,7 +193,7 @@ pub async fn server_task(
             }
             Commands::UpdateModule(update_module) => {
                 info!("Processing UpdateModule Command");
-                handle_update_module(&data, update_module, &mut instance_map, bootstrap.clone(), guest_db_path.clone())
+                handle_update_module(&data, update_module, &mut instance_map, bootstrap.clone(), host_data_path.clone())
                     .await
             }
             Commands::RemoveModule(remove_module) => {

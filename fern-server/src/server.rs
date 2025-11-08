@@ -157,7 +157,7 @@ pub async fn server_task(
     mut command_receiver: CommandReceiver,
     config : Config,
 ) -> anyhow::Result<()> {
-    let Config { db_path, .. } = config;
+    let Config { db_path, guest_db_path,.. } = config;
     info!("Starting Fern 🌿 Server");
 
     let data = if let Some(db_path) = db_path {
@@ -177,7 +177,7 @@ pub async fn server_task(
     let mut instance_map: InstanceMap = BTreeMap::new();
 
     // Bring any existing guests back online
-    handle_start_start(&data, bootstrap.clone(), &mut instance_map).await?;
+    handle_start_start(&data, bootstrap.clone(), &mut instance_map, guest_db_path.clone()).await?;
 
     info!("Entering server event loop");
     while let Some(cmd) = command_receiver.recv().await {

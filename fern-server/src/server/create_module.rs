@@ -1,7 +1,7 @@
-use std::collections::btree_map::Entry;
+use std::{collections::btree_map::Entry, path::PathBuf};
 
 use anyhow::anyhow;
-use fern_runtime::{guest::new_guest, iroh_helpers::iroh_bundle};
+use fern_runtime::{guest::{GuestConfig, new_guest}, iroh_helpers::iroh_bundle};
 use iroh::EndpointId;
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
@@ -44,6 +44,7 @@ pub struct CreateResponse {
 
 pub(crate) async fn handle_create_module(
     data: &Data,
+    guest_db_path: Option<PathBuf>,
     cmd: CreateModule,
     bootstrap: Vec<EndpointId>,
     instance_map: &mut InstanceMap,
@@ -58,7 +59,11 @@ pub(crate) async fn handle_create_module(
     let (endpoint, router_builder) = iroh_bundle().await?;
     let guest_row = GuestRow::create(data, cmd.name, cmd.module)?;
 
-    let mut guest = new_guest(guest_row.module, (endpoint, router_builder, bootstrap))?;
+    let guest_config = GuestConfig {
+        name: guest_row.name.clone(),
+        db_path: guest_db_path,
+    };
+    let mut guest = new_guest(guest_config, guest_row.module, (endpoint, router_builder, bootstrap))?;
 
     // TODO report module initialize failure
     guest.initialize()?;

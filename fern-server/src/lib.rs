@@ -53,25 +53,8 @@ pub async fn start_server(config: Config) -> Result<()> {
             let server = Server::new(endpoint, router_builder, config);
 
             tokio::spawn(api_server(server));
-            // let hello_world_module = include_bytes!("../../sample-guests/hello-world.wasm");
-
-            // let r = server
-            //     .create_module("hello-world".into(), hello_world_module.to_vec())
-            //     .await;
-            // info!("module create response {r:?}");
-            // Keep the server running indefinitely
-
-            //let mut n = 0;
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-                // n += 1;
-
-                // if n % 10 == 0 {
-                //     let r = server
-                //         .update_module("hello-world".into(), hello_world_module.to_vec())
-                //         .await;
-                //     info!("module update response {r:?}");
-                // }
             }
         })
         .await;

@@ -1,10 +1,13 @@
 mod pdk;
 
+use std::arch::wasm32;
+
 use extism_pdk::*;
 use pdk::*;
 
 // Guest handler for incoming gossip messages
 pub(crate) fn gossip_message_handler(_input: types::InboundGossipMsg) -> Result<(), Error> {
+    
     guest_info("helloworld::gossip_message_handler".into());
     Ok(())
 }

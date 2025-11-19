@@ -1,0 +1,63 @@
+package fern:base@0.1.0;
+
+interface guest {
+    variant tick-error {
+        runtime-error,
+        permanent-failure
+    }
+
+    init: func() -> bool;
+    post-init: func() -> bool;
+    shutdown: func() -> bool;
+    tick: func() -> result<_, tick-error>; 
+}
+
+world fern {
+    // Can add these to guests as needed
+    // import wasi:io/poll@0.2.8;
+    // import wasi:io/streams@0.2.8;
+    // import wasi:io/error@0.2.8;
+    import wasi:clocks/wall-clock@0.2.8;
+    
+    import sqlite;
+    export guest;
+}
+
+interface sqlite {
+    variant sqlite-value {
+        null,
+        integer(s64),
+        real(f64),
+        text(string),
+        blob(list<u8>)
+    }
+
+    variant db-open-error {
+        resource-owned,
+        connection-failure,
+    }
+
+    variant db-error {
+        to-sql-conversion-failure,
+        lock-error(string),
+        sql-execution-failure(string),
+        wal-operation-error(string),
+        query-returned-no-rows,
+        conversion-failure(string)
+    }
+
+    resource database {
+        execute: func(statement : string, params : list<sqlite-value>) -> result<u64, db-error>;
+        query: func(statement : string, params : list<sqlite-value>) -> result<rows, db-error>;
+    }
+
+    record row {
+        values: list<sqlite-value>
+    }
+
+    resource rows {
+        next: func() -> result<option<row>, db-error>;
+    }
+
+    open-db: func(name : string) -> result<database, db-open-error>;
+}

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
 use extism::{Manifest, Plugin, PluginBuilder, UserData, Wasm};
@@ -6,6 +6,7 @@ use iroh::{
     Endpoint, EndpointId,
     protocol::{Router, RouterBuilder},
 };
+use tokio::runtime::Handle;
 
 use crate::{
     guest_fns::{

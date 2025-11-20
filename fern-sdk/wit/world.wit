@@ -61,3 +61,14 @@ interface sqlite {
 
     open-db: func(name : string) -> result<database, db-open-error>;
 }
+
+interface gossip {
+    resource topic-handle {
+        
+    }
+
+    variant gossip-join-error {
+        placeholder,
+    }
+    join: func(name: string) -> result<topic-handle, gossip-join-error>;
+}

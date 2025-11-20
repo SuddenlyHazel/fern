@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use tokio::sync::Mutex;
 use wasmtime::{
     Config, Engine, Store,
     component::{HasData, Linker, bindgen},
@@ -6,6 +9,10 @@ use wasmtime_wasi::{
     ResourceTable, WasiCtx, WasiCtxView, WasiView,
     p2::{DynOutputStream, pipe::MemoryOutputPipe},
 };
+
+pub mod iroh_helpers;
+pub mod runtime;
+pub mod runtime_config;
 pub mod sqlite;
 
 use sqlite::SqliteState;
@@ -51,7 +58,7 @@ impl WasiView for GroupState {
 pub struct InstanceGroup {
     engine: Engine,
     linker: Linker<GroupState>,
-    store: Store<GroupState>,
+    store: Arc<Mutex<Store<GroupState>>>,
     // Just for testing
 }
 
@@ -91,6 +98,7 @@ pub fn new_instance_group() -> anyhow::Result<InstanceGroup> {
         },
     );
 
+    let store = Arc::new(Mutex::new(store));
     Ok(InstanceGroup {
         linker,
         store,
@@ -119,57 +127,60 @@ mod test {
         let component = Component::from_file(&group.engine, component_path)
             .context("failed to load component from file")?;
 
-        let fern_guest = Fern::instantiate_async(&mut group.store, &component, &group.linker)
+        let mut locked_store = group.store.lock().await;
+        let mut store = &mut *locked_store;
+
+        let fern_guest = Fern::instantiate_async(&mut store, &component, &group.linker)
             .await
             .context("Failed to init guest")?;
 
         assert!(
             fern_guest
                 .fern_base_guest()
-                .call_init(&mut group.store)
+                .call_init(&mut store)
                 .await
                 .context("failed to init guest")?
         );
         assert!(
             fern_guest
                 .fern_base_guest()
-                .call_post_init(&mut group.store)
+                .call_post_init(&mut store)
                 .await
                 .context("failed to post init guest")?
         );
+
         assert!(
             fern_guest
                 .fern_base_guest()
-                .call_shutdown(&mut group.store)
+                .call_shutdown(&mut store)
                 .await
                 .context("failed to call guest shutdown")?
         );
-        
 
         // Not really testing anything
         // But, demostates how to persist state in
         // the guest I gess
-        let tick_res = fern_guest.fern_base_guest().call_tick(&mut group.store).await?;
+        let tick_res = fern_guest.fern_base_guest().call_tick(&mut store).await?;
         assert!(tick_res.is_ok());
 
-        let tick_res = fern_guest.fern_base_guest().call_tick(&mut group.store).await?;
+        let tick_res = fern_guest.fern_base_guest().call_tick(&mut store).await?;
         assert!(tick_res.is_ok());
 
-        let tick_res = fern_guest.fern_base_guest().call_tick(&mut group.store).await?;
+        let tick_res = fern_guest.fern_base_guest().call_tick(&mut store).await?;
         assert!(tick_res.is_ok());
 
-        let tick_res = fern_guest.fern_base_guest().call_tick(&mut group.store).await?;
+        let tick_res = fern_guest.fern_base_guest().call_tick(&mut store).await?;
         assert!(tick_res.is_ok());
 
         // Test components can share the pipe
-        let fern_guest_two = Fern::instantiate_async(&mut group.store, &component, &group.linker)
+        let fern_guest_two = Fern::instantiate_async(&mut store, &component, &group.linker)
             .await
             .context("Failed to init guest")?;
 
         assert!(
             fern_guest_two
                 .fern_base_guest()
-                .call_init(&mut group.store)
+                .call_init(&mut store)
                 .await
                 .context("failed to init guest")?
         );

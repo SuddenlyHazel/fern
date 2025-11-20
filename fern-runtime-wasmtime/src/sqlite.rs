@@ -1,3 +1,10 @@
+//! SQLite functionality using Turso's Rust rewrite for SQLite.
+//! For more information, see: <https://github.com/tursodatabase/turso>
+//!
+//! It's worth noting that Turso's implmentation is still very much a WIP..
+//!
+//!
+
 use wasmtime::component::HasData;
 use wasmtime_wasi::ResourceTable;
 

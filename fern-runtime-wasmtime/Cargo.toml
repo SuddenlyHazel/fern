@@ -9,7 +9,7 @@ base64 = "0.22.1"
 blake3 = { version = "1.8.2", features = ["digest"] }
 env_logger = "0.11.8"
 hmac-sha256 = "1.1.12"
-iroh = "0.95.1"
+iroh = { version = "0.95.1", features = ["discovery-local-network"] }
 iroh-gossip = "0.95.0"
 log = "0.4"
 redb = "3.1.0"
@@ -28,8 +28,13 @@ wasmtime = { git = "https://github.com/bytecodealliance/wasmtime.git", branch = 
 ] }
 wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime.git", branch = "main" }
 turso = "0.3.2"
+toml = "0.9.8"
+rand = { version = "0.9.2", features = ["os_rng"] }
+owo-colors = "4.2.3"
+swarm-discovery = "0.4.1"
+clap = { version = "4.5.53", features = ["derive"] }
 
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
+# [profile.release]
+# opt-level = 3
+# lto = true
+# codegen-units = 1

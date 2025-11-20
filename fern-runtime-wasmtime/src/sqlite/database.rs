@@ -9,6 +9,7 @@ use crate::{
     },
     sqlite::{RowsResource, SqliteState},
 };
+
 pub struct DatabaseResource {
     pub(crate) name: String,
     pub(crate) db: turso::Database,
